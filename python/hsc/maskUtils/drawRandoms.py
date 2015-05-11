@@ -40,7 +40,7 @@ from lsst.pipe.tasks.setPrimaryFlags import SetPrimaryFlagsTask
 class DrawRandomsConfig(ProcessCoaddTask.ConfigClass):
     N           = pexConfig.Field("Number of random points per patch", int, 100000)
     fileOutName = pexConfig.Field("Name of output file", str, "ran.fits")
-    test        = pexConfig.Field("To write a test table", "Flag", False)
+    test        = pexConfig.Field("To write a test table", bool, False)
     
 class DrawRandomsTask(ProcessCoaddTask):
     _DefaultName = "drawRandoms"
@@ -104,9 +104,9 @@ class DrawRandomsTask(ProcessCoaddTask):
 
     def run(self, dataRef):
 
-        if self.config.test:
-            self.testTable()    
-            return
+        #if self.config.test:
+        #    self.testTable()    
+        #    return
 
 
         # verbose
