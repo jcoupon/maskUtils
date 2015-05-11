@@ -30,12 +30,13 @@ import lsst.afw.image    as afwImage
 from   lsst.afw.geom     import Box2D
 import lsst.afw.table    as afwTable
 
-from lsst.pipe.tasks.processCoadd import ProcessCoaddTask
-from lsst.pipe.tasks.coaddBase import ExistingCoaddDataIdContainer, getSkyInfo
+from lsst.pipe.tasks.processCoadd    import ProcessCoaddTask
+from lsst.pipe.tasks.coaddBase       import ExistingCoaddDataIdContainer, getSkyInfo
 from lsst.pipe.tasks.setPrimaryFlags import SetPrimaryFlagsTask
 
 
 #class DrawRandomsConfig(pexConfig.Config):
+# inherit from ProcessCoaddTask to use patch names in command line
 class DrawRandomsConfig(ProcessCoaddTask.ConfigClass):
     N           = pexConfig.Field("Number of random points per patch", int, 100000)
     fileOutName = pexConfig.Field("Name of output file", str, "ran.fits")
@@ -123,6 +124,7 @@ class DrawRandomsTask(ProcessCoaddTask):
             record.set(fields[2], isPatchInner)
             record.set(fields[3], isTractInner)
 
+            # set individual mask values
             for j in range(len(values)):
                 flag = self.check_bit(bitmask, values[j])
                 if flag:
