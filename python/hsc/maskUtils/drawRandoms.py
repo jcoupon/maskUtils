@@ -86,8 +86,8 @@ class DrawRandomsTask(ProcessCoaddTask):
         # define table fields
         fields = [schema.addField("ra", type="F", doc="ra")]
         fields.append(schema.addField("dec", type="F", doc="dec"))
-        fields.append(schema.addField("isPatchInner", type="I", doc="True if inside patch inner area"))
-        fields.append(schema.addField("isTractInner", type="I", doc="True if inside tract inner area"))
+        fields.append(schema.addField("isPatchInner", type="Flag", doc="True if inside patch inner area"))
+        fields.append(schema.addField("isTractInner", type="Flag", doc="True if inside tract inner area"))
 
         # create table object
         table = afwTable.BaseCatalog(schema)
@@ -104,9 +104,9 @@ class DrawRandomsTask(ProcessCoaddTask):
 
     def run(self, dataRef):
 
-        #if self.config.test:
-        #    self.testTable()    
-        #    return
+        if self.config.test:
+            self.testTable() 
+            return
 
 
         # verbose
