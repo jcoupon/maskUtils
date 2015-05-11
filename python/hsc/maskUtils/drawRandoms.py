@@ -40,6 +40,7 @@ from lsst.pipe.tasks.setPrimaryFlags import SetPrimaryFlagsTask
 class DrawRandomsConfig(ProcessCoaddTask.ConfigClass):
     N           = pexConfig.Field("Number of random points per patch", int, 100000)
     fileOutName = pexConfig.Field("Name of output file", str, "ran.fits")
+    test        = pexConfig.Field("To write a test table", "Flag", False)
     
 class DrawRandomsTask(ProcessCoaddTask):
     _DefaultName = "drawRandoms"
@@ -77,7 +78,36 @@ class DrawRandomsTask(ProcessCoaddTask):
         return ra, dec, bitmask, isPatchInner, isTractInner
 
 
+    def testTable(self):
+
+        # create table
+        schema = afwTable.Schema()
+
+        # define table fields
+        fields = [schema.addField("ra", type="F", doc="ra")]
+        fields.append(schema.addField("dec", type="F", doc="dec"))
+        fields.append(schema.addField("isPatchInner", type="I", doc="True if inside patch inner area"))
+        fields.append(schema.addField("isTractInner", type="I", doc="True if inside tract inner area"))
+
+        # create table object
+        table = afwTable.BaseCatalog(schema)
+
+        record = table.addNew()
+        record.set(fields[0], 1.0)
+        record.set(fields[1], 1.0)
+        record.set(fields[2], True)
+        record.set(fields[3], True)
+
+        table.writeFits("test.fits")
+
+        return
+
     def run(self, dataRef):
+
+        if self.config.test:
+            self.testTable()    
+            return
+
 
         # verbose
         self.log.info("Processing %s" % (dataRef.dataId))
