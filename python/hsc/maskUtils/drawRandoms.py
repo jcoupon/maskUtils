@@ -89,8 +89,8 @@ class DrawRandomsTask(ProcessCoaddTask):
         # define table fields
         fields = [schema.addField("ra", type="F", doc="ra")]
         fields.append(schema.addField("dec", type="F", doc="dec"))
-        fields.append(schema.addField("flag1", type="Flag", doc=""))
-        fields.append(schema.addField("flag2", type="Flag", doc=""))
+        fields.append(schema.addField("isPatchInner", type="Flag", doc="True if inside patch inner area"))
+        fields.append(schema.addField("isTractInner", type="Flag", doc="True if inside tract inner area"))
 
         # create table object
         catalog = afwTable.BaseCatalog(schema)
@@ -146,11 +146,11 @@ class DrawRandomsTask(ProcessCoaddTask):
         values      = mask_labels.values()
 
         # create arrays   
-        ra  = [0.0]*self.config.N
-        dec = [0.0]*self.config.N
+        ra           = [0.0]*self.config.N
+        dec          = [0.0]*self.config.N
         isPatchInner = [True]*self.config.N
         isTractInner = [True]*self.config.N
-        flags = [[True]*self.config.N for i in range(len(keys))]
+        flags        = [[True]*self.config.N for i in range(len(keys))]
 
         # loop over N random points
         for i in range(self.config.N):
