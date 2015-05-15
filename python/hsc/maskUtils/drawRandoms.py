@@ -22,6 +22,7 @@
 #
 
 import numpy
+import pyfits as fits
 
 import lsst.pex.config   as pexConfig
 import lsst.pipe.base    as pipeBase
@@ -52,7 +53,6 @@ class DrawRandomsTask(ProcessCoaddTask):
     def check_bit(self, bitmask, bit):
         return ((bitmask&(1<<bit))!=0)
 
-
     def drawOnePoint(self, mask_array, dim, wcs, xy0, skyInfo):
         
         x = numpy.random.random()*(dim[0]-1)
@@ -78,7 +78,10 @@ class DrawRandomsTask(ProcessCoaddTask):
         return ra, dec, bitmask, isPatchInner, isTractInner
 
 
-    def testTable(self):
+    def testTable(self, read=False):
+
+        # to do
+        # this table cannot be read by Topcat and I have no clue why
 
         # create table
         schema = afwTable.Schema()
@@ -86,28 +89,40 @@ class DrawRandomsTask(ProcessCoaddTask):
         # define table fields
         fields = [schema.addField("ra", type="F", doc="ra")]
         fields.append(schema.addField("dec", type="F", doc="dec"))
-        fields.append(schema.addField("isPatchInner", type="Flag", doc="True if inside patch inner area"))
-        fields.append(schema.addField("isTractInner", type="Flag", doc="True if inside tract inner area"))
+        fields.append(schema.addField("flag1", type="Flag", doc=""))
+        fields.append(schema.addField("flag2", type="Flag", doc=""))
 
         # create table object
-        table = afwTable.BaseCatalog(schema)
+        catalog = afwTable.BaseCatalog(schema)
 
-        record = table.addNew()
+        # fill the table
+        record = catalog.addNew()
         record.set(fields[0], 1.0)
-        record.set(fields[1], 1.0)
-        record.set(fields[2], True)
-        record.set(fields[3], True)
+        record.set(fields[1], 2.0)
+        for i in range(2, 4):
+            record.set(fields[i], True)
 
-        table.writeFits("test.fits")
+        # save the table
+        catalog.writeFits("test.fits")
+
+        if read:
+
+            #FILE = pyfits.open("/Users/coupon/data/HSC/SSP/rerun/CLAUDS/deepCoadd-results/HSC-Y/1/5,5/src-HSC-Y-1-5,5.fits")
+            FILE = pyfits.open("test.fits")
+            d    = FILE[1].data
+
+            print FILE.info()
+            print FILE[0].header
+
+            FILE.close()
 
         return
 
     def run(self, dataRef):
 
         if self.config.test:
-            self.testTable() 
+            self.testTable(read=False) 
             return
-
 
         # verbose
         self.log.info("Processing %s" % (dataRef.dataId))
@@ -130,41 +145,33 @@ class DrawRandomsTask(ProcessCoaddTask):
         keys        = mask_labels.keys()
         values      = mask_labels.values()
 
-        # create table that will store random points and mask values
-        schema = afwTable.Schema()
-
-        # define table fields
-        fields = [schema.addField("ra", type="F", doc="ra")]
-        fields.append(schema.addField("dec", type="F", doc="dec"))
-        fields.append(schema.addField("isPatchInner", type="I", doc="True if inside patch inner area"))
-        fields.append(schema.addField("isTractInner", type="I", doc="True if inside tract inner area"))
-        for key in keys:
-            fields.append(schema.addField(key, type="I", doc=key))
-
-        # create table object
-        table = afwTable.BaseCatalog(schema)
+        # create arrays   
+        ra  = [0.0]*self.config.N
+        dec = [0.0]*self.config.N
+        isPatchInner = [True]*self.config.N
+        isTractInner = [True]*self.config.N
+        flags = [[True]*self.config.N for i in range(len(keys))]
 
         # loop over N random points
         for i in range(self.config.N):
-            ra, dec, bitmask, isPatchInner, isTractInner = self.drawOnePoint(mask_array, dim, wcs, xy0, skyInfo)
+            ra[i], dec[i], bitmask, isPatchInner[i], isTractInner[i] = self.drawOnePoint(mask_array, dim, wcs, xy0, skyInfo)
 
-            record = table.addNew()
-            record.set(fields[0], ra)
-            record.set(fields[1], dec)
-            record.set(fields[2], isPatchInner)
-            record.set(fields[3], isTractInner)
+            for j, value in enumerate(values):
+                flags[j][i] = self.check_bit(bitmask, value)
+         
+        # column definition
+        cols = fits.ColDefs([fits.Column(name="ra",           format="E", array=ra)])
+        cols.add_col(        fits.Column(name="dec",          format="E", array=dec))
+        cols.add_col(        fits.Column(name="isPatchInner", format="L", array=isPatchInner))
+        cols.add_col(        fits.Column(name="isTractInner", format="L", array=isTractInner))
+        for j, key in enumerate(keys):
+            cols.add_col(        fits.Column(name=key,            format="L", array=flags[j]))
 
-            # set individual mask values
-            for j in range(len(values)):
-                flag = self.check_bit(bitmask, values[j])
-                if flag:
-                    toto = 1
-                else:
-                    toto = 0
-                record.set(fields[4+j], toto)
+        # create table object
+        tbhdu = fits.BinTableHDU.from_columns(cols)
 
-
-        table.writeFits(self.config.fileOutName)
+        # write table
+        tbhdu.writeto(self.config.fileOutName, clobber=True)
       
         return
 
