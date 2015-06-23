@@ -50,13 +50,71 @@ class DrawRandomsTask(ProcessCoaddTask):
     def __init__(self, **kwargs):
         ProcessCoaddTask.__init__(self, **kwargs)
 
+    def run(self, dataRef):
+
+        if self.config.test:
+            self.testTable(read=False) 
+            return
+
+        # verbose
+        self.log.info("Processing %s" % (dataRef.dataId))
+
+        # get coadd and coadd info 
+        coadd   = dataRef.get(self.config.coaddName + "Coadd")
+        skyInfo = getSkyInfo(coaddName=self.config.coaddName, patchRef=dataRef)
+
+        # wcs and reference point (wrt tract)
+        wcs = coadd.getWcs()
+        xy0 = coadd.getXY0()  
+
+        # extract mask and convert into array
+        mask = coadd.getMaskedImage().getMask()
+        dim  = mask.getDimensions()
+        mask_array = mask.getArray()
+
+
+        # get mask labels and bit values
+        mask_labels = mask.getMaskPlaneDict()
+        keys        = mask_labels.keys()
+        values      = mask_labels.values()
+
+        # create arrays   
+        ra           = [0.0]*self.config.N
+        dec          = [0.0]*self.config.N
+        isPatchInner = [True]*self.config.N
+        isTractInner = [True]*self.config.N
+        flags        = [[True]*self.config.N for i in range(len(keys))]
+
+        # loop over N random points
+        for i in range(self.config.N):
+            ra[i], dec[i], bitmask, isPatchInner[i], isTractInner[i] = self.drawOnePoint(mask_array, dim, wcs, xy0, skyInfo)
+
+            for j, value in enumerate(values):
+                flags[j][i] = self.check_bit(bitmask, value)
+         
+        # column definition
+        cols = fits.ColDefs([fits.Column(name="ra",           format="E", array=ra)])
+        cols.add_col(        fits.Column(name="dec",          format="E", array=dec))
+        cols.add_col(        fits.Column(name="isPatchInner", format="L", array=isPatchInner))
+        cols.add_col(        fits.Column(name="isTractInner", format="L", array=isTractInner))
+        for j, key in enumerate(keys):
+            cols.add_col(        fits.Column(name=key,            format="L", array=flags[j]))
+
+        # create table object
+        tbhdu = fits.BinTableHDU.from_columns(cols)
+
+        # write table
+        tbhdu.writeto(self.config.fileOutName, clobber=True)
+      
+        return
+
     def check_bit(self, bitmask, bit):
         return ((bitmask&(1<<bit))!=0)
 
     def drawOnePoint(self, mask_array, dim, wcs, xy0, skyInfo):
         
         x = numpy.random.random()*(dim[0]-1)
-        y = numpy.random.random()*(dim[0]-1)
+        y = numpy.random.random()*(dim[1]-1)
 
         bitmask = mask_array[y, x]
 
@@ -118,62 +176,6 @@ class DrawRandomsTask(ProcessCoaddTask):
 
         return
 
-    def run(self, dataRef):
-
-        if self.config.test:
-            self.testTable(read=False) 
-            return
-
-        # verbose
-        self.log.info("Processing %s" % (dataRef.dataId))
-
-        # get coadd and coadd info 
-        coadd   = dataRef.get(self.config.coaddName + "Coadd")
-        skyInfo = getSkyInfo(coaddName=self.config.coaddName, patchRef=dataRef)
-
-        # wcs and reference point (wrt tract)
-        wcs = coadd.getWcs()
-        xy0 = coadd.getXY0()  
-
-        # extract mask and convert into array
-        mask = coadd.getMaskedImage().getMask()
-        dim  = mask.getDimensions()
-        mask_array = mask.getArray()
-
-        # get mask labels and bit values
-        mask_labels = mask.getMaskPlaneDict()
-        keys        = mask_labels.keys()
-        values      = mask_labels.values()
-
-        # create arrays   
-        ra           = [0.0]*self.config.N
-        dec          = [0.0]*self.config.N
-        isPatchInner = [True]*self.config.N
-        isTractInner = [True]*self.config.N
-        flags        = [[True]*self.config.N for i in range(len(keys))]
-
-        # loop over N random points
-        for i in range(self.config.N):
-            ra[i], dec[i], bitmask, isPatchInner[i], isTractInner[i] = self.drawOnePoint(mask_array, dim, wcs, xy0, skyInfo)
-
-            for j, value in enumerate(values):
-                flags[j][i] = self.check_bit(bitmask, value)
-         
-        # column definition
-        cols = fits.ColDefs([fits.Column(name="ra",           format="E", array=ra)])
-        cols.add_col(        fits.Column(name="dec",          format="E", array=dec))
-        cols.add_col(        fits.Column(name="isPatchInner", format="L", array=isPatchInner))
-        cols.add_col(        fits.Column(name="isTractInner", format="L", array=isTractInner))
-        for j, key in enumerate(keys):
-            cols.add_col(        fits.Column(name=key,            format="L", array=flags[j]))
-
-        # create table object
-        tbhdu = fits.BinTableHDU.from_columns(cols)
-
-        # write table
-        tbhdu.writeto(self.config.fileOutName, clobber=True)
-      
-        return
 
 
 
