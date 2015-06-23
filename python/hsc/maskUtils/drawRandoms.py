@@ -133,7 +133,7 @@ class DrawRandomsTask(CoaddBaseTask):
 
         # create table object - method depends on pyfits method
         pyfits_v = [self.int_robust(v) for v in (fits.__version__).split('.')]
-        if (pyfits_v[0] > 3) | (pyfits_v[0] == 3 & pyfits_v[0] >= 3):
+        if (pyfits_v[0] > 3) | (pyfits_v[0] == 3 & pyfits_v[1] >= 3):
             tbhdu = fits.BinTableHDU.from_columns(cols)
         else:
             tbhdu = fits.new_table(cols)
