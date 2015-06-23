@@ -1,6 +1,12 @@
 # maskUtils
 
-This module adds a few mask utilities. To set it up in the hscPipe environment, run
+This module adds a few mask utilities to the HSC pipeline environment.
+
+To install it, download the latest version to path/to/maskUtils
+```
+git clone https://github.com/jcoupon/maskUtils.git
+```
+and run
 ```
 setup -v -j -r path/to/maskUtils
 ```
