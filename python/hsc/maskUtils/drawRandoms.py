@@ -23,34 +23,50 @@
 
 import numpy
 import pyfits as fits
+#import matplotlib.pyplot as pyplot
 
 import lsst.pex.config   as pexConfig
 import lsst.pipe.base    as pipeBase
-import matplotlib.pyplot as pyplot
 import lsst.afw.image    as afwImage
 from   lsst.afw.geom     import Box2D
 import lsst.afw.table    as afwTable
 
-from lsst.pipe.tasks.processCoadd    import ProcessCoaddTask
-from lsst.pipe.tasks.coaddBase       import ExistingCoaddDataIdContainer, getSkyInfo
+#from lsst.pipe.tasks.processCoadd    import ProcessCoaddTask
+#from lsst.pipe.tasks.coaddBase import ExistingCoaddDataIdContainer, getSkyInfo
+from lsst.pipe.tasks.coaddBase import CoaddBaseTask
 from lsst.pipe.tasks.setPrimaryFlags import SetPrimaryFlagsTask
 
+__all__ = ["DrawRandomsTask"]
 
-#class DrawRandomsConfig(pexConfig.Config):
-# inherit from ProcessCoaddTask to use patch names in command line
-class DrawRandomsConfig(ProcessCoaddTask.ConfigClass):
-    N           = pexConfig.Field("Number of random points per patch", int, 100000)
+#class DrawRandomsConfig(ProcessCoaddTask.ConfigClass):
+class DrawRandomsConfig(CoaddBaseTask.ConfigClass):
+
+    N           = pexConfig.Field("Number of random points per patch (supersedes Nden)", int, -1)
+    Nden        = pexConfig.Field("Random number density per sq arcmin", float, 100)
+    clobber     = pexConfig.Field("To overwrite existing file [default: True]", bool, True)
     fileOutName = pexConfig.Field("Name of output file", str, "ran.fits")
     test        = pexConfig.Field("To write a test table", bool, False)
+
+    def setDefaults(self):
+        pexConfig.Config.setDefaults(self)
+
     
-class DrawRandomsTask(ProcessCoaddTask):
+#class DrawRandomsTask(ProcessCoaddTask):
+class DrawRandomsTask(CoaddBaseTask):
     _DefaultName = "drawRandoms"
     ConfigClass  = DrawRandomsConfig
 
-    def __init__(self, **kwargs):
-        ProcessCoaddTask.__init__(self, **kwargs)
+    def __init__(self, *args, **kwargs):
+        #ProcessCoaddTask.__init__(self, **kwargs)
+        CoaddBaseTask.__init__(self,  *args, **kwargs)
 
-    def run(self, dataRef):
+
+    def run(self, dataRef, selectDataList=[]):
+        """
+        Draw randoms for a given patch
+        See http://hsca.ipmu.jp/hscsphinx_test/scripts/print_coord.html 
+        for coordinate routines.
+        """
 
         if self.config.test:
             self.testTable(read=False) 
@@ -61,7 +77,12 @@ class DrawRandomsTask(ProcessCoaddTask):
 
         # get coadd and coadd info 
         coadd   = dataRef.get(self.config.coaddName + "Coadd")
-        skyInfo = getSkyInfo(coaddName=self.config.coaddName, patchRef=dataRef)
+
+        #coadd.setPsf(None)
+        #print coadd.getPsf()
+
+        skyInfo = self.getSkyInfo(dataRef)
+        #skyInfo = self.getSkyInfo(coaddName=self.config.coaddName, patchRef=dataRef)
 
         # wcs and reference point (wrt tract)
         wcs = coadd.getWcs()
@@ -72,21 +93,31 @@ class DrawRandomsTask(ProcessCoaddTask):
         dim  = mask.getDimensions()
         mask_array = mask.getArray()
 
+        # Compute the area in degree
+        pixel_area =  coadd.getWcs().pixelScale().asDegrees()**2
+        area       = pixel_area * dim[0] * dim[1]
+
+        # print "total area = ", area
+
+        if self.config.N  == -1:
+            N = self.iround(area*self.config.Nden*60.0*60.0)
+        else:
+            N = self.config.N
 
         # get mask labels and bit values
         mask_labels = mask.getMaskPlaneDict()
         keys        = mask_labels.keys()
         values      = mask_labels.values()
 
-        # create arrays   
-        ra           = [0.0]*self.config.N
-        dec          = [0.0]*self.config.N
-        isPatchInner = [True]*self.config.N
-        isTractInner = [True]*self.config.N
-        flags        = [[True]*self.config.N for i in range(len(keys))]
+        # initialize arrays   
+        ra           = [0.0]*N
+        dec          = [0.0]*N
+        isPatchInner = [True]*N
+        isTractInner = [True]*N
+        flags        = [[True]*N for i in range(len(keys))]
 
         # loop over N random points
-        for i in range(self.config.N):
+        for i in range(N):
             ra[i], dec[i], bitmask, isPatchInner[i], isTractInner[i] = self.drawOnePoint(mask_array, dim, wcs, xy0, skyInfo)
 
             for j, value in enumerate(values):
@@ -103,13 +134,28 @@ class DrawRandomsTask(ProcessCoaddTask):
         # create table object
         tbhdu = fits.BinTableHDU.from_columns(cols)
 
+        # add info in header
+        header = fits.Header()
+        header['AREA'] = (area, "in sq. degrees")
+
         # write table
-        tbhdu.writeto(self.config.fileOutName, clobber=True)
+        hdulist = fits.HDUList([fits.PrimaryHDU(header=header), tbhdu])
+
+        #tbhdu.writeto(self.config.fileOutName, clobber=self.config.clobber)
+        hdulist.writeto(self.config.fileOutName, clobber=self.config.clobber)
       
         return
 
     def check_bit(self, bitmask, bit):
         return ((bitmask&(1<<bit))!=0)
+
+    def iround(self, x):
+        """
+        iround(number) -> integer
+        Round a number to the nearest integer.
+        From https://www.daniweb.com/software-development/python/threads/299459/round-to-nearest-integer-
+        """
+        return int(round(x) - .5) + (x > 0)
 
     def drawOnePoint(self, mask_array, dim, wcs, xy0, skyInfo):
         
@@ -177,6 +223,15 @@ class DrawRandomsTask(ProcessCoaddTask):
         return
 
 
+
+
+    # Overload these if your task inherits from CmdLineTask
+    def _getConfigName(self):
+        return None
+    def _getEupsVersionsName(self):
+        return None
+    def _getMetadataName(self):
+        return None
 
 
 
