@@ -132,8 +132,7 @@ class DrawRandomsTask(CoaddBaseTask):
             cols.add_col(        fits.Column(name=key,            format="L", array=flags[j]))
 
         # create table object - method depends on pyfits method
-        print fits.__version__
-        pyfits_v = [int(v) for v in (fits.__version__).split('.')]
+        pyfits_v = [self.int_robust(v) for v in (fits.__version__).split('.')]
         if (pyfits_v[0] > 3) | (pyfits_v[0] == 3 & pyfits_v[0] >= 3):
             tbhdu = fits.BinTableHDU.from_columns(cols)
         else:
@@ -228,7 +227,11 @@ class DrawRandomsTask(CoaddBaseTask):
         return
 
 
-
+    def int_robust(self, s):
+        try:
+            return int(s)
+        except ValueError:
+            return 0
 
     # Overload these if your task inherits from CmdLineTask
     def _getConfigName(self):
