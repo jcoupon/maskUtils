@@ -132,6 +132,7 @@ class DrawRandomsTask(CoaddBaseTask):
             cols.add_col(        fits.Column(name=key,            format="L", array=flags[j]))
 
         # create table object - method depends on pyfits method
+        print fits.__version__
         pyfits_v = [int(v) for v in (fits.__version__).split('.')]
         if (pyfits_v[0] > 3) | (pyfits_v[0] == 3 & pyfits_v[0] >= 3):
             tbhdu = fits.BinTableHDU.from_columns(cols)
