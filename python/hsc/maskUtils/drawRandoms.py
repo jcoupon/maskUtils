@@ -63,6 +63,8 @@ class DrawRandomsTask(CoaddBaseTask):
             schema = afwTable.SourceTable.makeMinimalSchema()
         self.schema = schema
 
+
+
         self.makeSubtask("setPrimaryFlags", schema=self.schema)
 
 
@@ -76,8 +78,9 @@ class DrawRandomsTask(CoaddBaseTask):
         # verbose
         self.log.info("Processing %s" % (dataRef.dataId))
 
-        # get coadd and coadd info
+        # get coadd, coadd info and coadd psf object
         coadd   = dataRef.get(self.config.coaddName + "Coadd")
+        psf = coadd.getPsf()
 
         skyInfo = self.getSkyInfo(dataRef)
         #skyInfo = self.getSkyInfo(coaddName=self.config.coaddName, patchRef=dataRef)
@@ -101,6 +104,9 @@ class DrawRandomsTask(CoaddBaseTask):
         measureSourcesConfig.slots.calibFlux = None
         measureSourcesConfig.slots.shape = None
         measureSourcesConfig.validate()
+
+        # add PSF_size column
+        PSF_size = self.schema.addField("PSF_size", type=numpy.float32, doc="Size of the PSF (sigma)", units="Pixels")
 
         ms      = measureSourcesConfig.makeMeasureSources(self.schema)
         catalog = afwTable.SourceCatalog(self.schema)
@@ -133,6 +139,12 @@ class DrawRandomsTask(CoaddBaseTask):
             # add record in table
             record = catalog.addNew()
             record.setCoord(radec)
+
+            # record size of the PSF
+            # in pixels. If circular, it's equivalent to the standard deviation
+            shape = psf.computeShape(afwGeom.Point2D(xy)).getDeterminantRadius()
+
+            record.set(PSF_size, shape)
 
             # looks like defining footprint isn't necessary
             # foot = afwDetection.Footprint(afwGeom.Point2I(xy), 1)
