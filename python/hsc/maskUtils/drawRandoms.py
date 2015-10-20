@@ -63,8 +63,6 @@ class DrawRandomsTask(CoaddBaseTask):
             schema = afwTable.SourceTable.makeMinimalSchema()
         self.schema = schema
 
-
-
         self.makeSubtask("setPrimaryFlags", schema=self.schema)
 
 
@@ -102,11 +100,12 @@ class DrawRandomsTask(CoaddBaseTask):
         measureSourcesConfig.slots.modelFlux = None
         measureSourcesConfig.slots.instFlux = None
         measureSourcesConfig.slots.calibFlux = None
-        measureSourcesConfig.slots.shape = None
+        measureSourcesConfig.slots.shape =  None
         measureSourcesConfig.validate()
 
         # add PSF_size column
-        PSF_size = self.schema.addField("PSF_size", type=numpy.float32, doc="Size of the PSF (sigma)", units="Pixels")
+        shape_sdss_psf = self.schema.addField("shape_sdss_psf", type="MomentsD", doc="PSF moments from SDSS algorithm", units="Pixels")
+        PSF_size       = self.schema.addField("PSF_size", type=numpy.float32, doc="Size of the PSF from shape_sdss_psf (=sigma of gaussian)", units="Pixels")
 
         ms      = measureSourcesConfig.makeMeasureSources(self.schema)
         catalog = afwTable.SourceCatalog(self.schema)
@@ -140,11 +139,9 @@ class DrawRandomsTask(CoaddBaseTask):
             record = catalog.addNew()
             record.setCoord(radec)
 
-            # record size of the PSF
-            # in pixels. If circular, it's equivalent to the standard deviation
-            shape = psf.computeShape(afwGeom.Point2D(xy)).getDeterminantRadius()
-
-            record.set(PSF_size, shape)
+            # get PSF moments and evaluate size
+            record.set(shape_sdss_psf, psf.computeShape(afwGeom.Point2D(xy)))
+            record.set(PSF_size, psf.computeShape(afwGeom.Point2D(xy)).getDeterminantRadius())
 
             # looks like defining footprint isn't necessary
             # foot = afwDetection.Footprint(afwGeom.Point2I(xy), 1)
