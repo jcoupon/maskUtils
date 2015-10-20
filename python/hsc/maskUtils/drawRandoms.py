@@ -41,7 +41,7 @@ __all__ = ["DrawRandomsTask"]
 class DrawRandomsConfig(CoaddBaseTask.ConfigClass):
 
     N           = pexConfig.Field("Number of random points per patch (supersedes Nden)", int, -1)
-    Nden        = pexConfig.Field("Random number density per sq arcmin", float, 100)
+    Nden        = pexConfig.Field("Random number density per sq arcmin", float, 30)
     clobber     = pexConfig.Field("To overwrite existing file [default: True]", bool, True)
     fileOutName = pexConfig.Field("Name of output file", str, "ran.fits")
     test        = pexConfig.Field("To write a test table", bool, False)
@@ -105,7 +105,7 @@ class DrawRandomsTask(CoaddBaseTask):
 
         # add PSF_size column
         shape_sdss_psf = self.schema.addField("shape_sdss_psf", type="MomentsD", doc="PSF moments from SDSS algorithm", units="Pixels")
-        PSF_size       = self.schema.addField("PSF_size", type=numpy.float32, doc="Size of the PSF from shape_sdss_psf (=sigma of gaussian)", units="Pixels")
+        #PSF_size       = self.schema.addField("PSF_size", type=numpy.float32, doc="Size of the PSF from shape_sdss_psf (=sigma of gaussian)", units="Pixels")
 
         ms      = measureSourcesConfig.makeMeasureSources(self.schema)
         catalog = afwTable.SourceCatalog(self.schema)
@@ -141,7 +141,7 @@ class DrawRandomsTask(CoaddBaseTask):
 
             # get PSF moments and evaluate size
             record.set(shape_sdss_psf, psf.computeShape(afwGeom.Point2D(xy)))
-            record.set(PSF_size, psf.computeShape(afwGeom.Point2D(xy)).getDeterminantRadius())
+            #record.set(PSF_size, psf.computeShape(afwGeom.Point2D(xy)).getDeterminantRadius())
 
             # looks like defining footprint isn't necessary
             # foot = afwDetection.Footprint(afwGeom.Point2I(xy), 1)
