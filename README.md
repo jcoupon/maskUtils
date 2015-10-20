@@ -15,7 +15,7 @@ setup -v -j -r path/to/maskUtils
 
 Creates a random catalogue for a given patch:
 ```
- drawRandoms.py DATADIR --rerun RERUNDIR --id tract=TRACT patch=PATCH filter=FILTER --config Nden=100  fileOutName=OUTDIR/ran-FILTER-TRACT-PATCH.fits
+ drawRandoms.py DATADIR --rerun RERUNDIR --id tract=TRACT patch=PATCH filter=FILTER --config Nden=30  fileOutName=OUTDIR/ran-FILTER-TRACT-PATCH.fits
 ```
 
 ### Options:
