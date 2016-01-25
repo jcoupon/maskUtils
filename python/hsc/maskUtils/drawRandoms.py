@@ -82,8 +82,8 @@ class DrawRandomsTask(CoaddBaseTask):
 
         # get coadd, coadd info and coadd psf object
         #coadd = butler.get('calexp', dataRef.dataId)
-        coadd   = dataRef.get(self.config.coaddName + "Coadd_calexp")
-        psf = coadd.getPsf()
+        coadd = dataRef.get(self.config.coaddName + "Coadd_calexp")
+        psf   = coadd.getPsf()
 
         skyInfo = self.getSkyInfo(dataRef)
         #skyInfo = self.getSkyInfo(coaddName=self.config.coaddName, patchRef=dataRef)
@@ -110,6 +110,7 @@ class DrawRandomsTask(CoaddBaseTask):
 
         # add PSF_size column
         shape_sdss_psf = self.schema.addField("shape_sdss_psf", type="MomentsD", doc="PSF moments from SDSS algorithm", units="Pixels")
+        adjust_density = self.schema.addField("adjust_density", type=float, doc="Random number between [0:1] to adjust sky density", units="unitless")
         #PSF_size       = self.schema.addField("PSF_size", type=numpy.float32, doc="Size of the PSF from shape_sdss_psf (=sigma of gaussian)", units="Pixels")
 
         ms      = measureSourcesConfig.makeMeasureSources(self.schema)
@@ -147,6 +148,9 @@ class DrawRandomsTask(CoaddBaseTask):
             # get PSF moments and evaluate size
             record.set(shape_sdss_psf, psf.computeShape(afwGeom.Point2D(xy)))
             #record.set(PSF_size, psf.computeShape(afwGeom.Point2D(xy)).getDeterminantRadius())
+
+            # draw a number between 0 and 1 to adjust sky density
+            record.set(adjust_density, numpy.random.rand(1.)[0])
 
             # looks like defining footprint isn't necessary
             # foot = afwDetection.Footprint(afwGeom.Point2I(xy), 1)
