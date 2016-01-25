@@ -22,6 +22,8 @@
 #
 
 import numpy
+import errno
+import os
 
 import lsst.pex.config   as pexConfig
 import lsst.pipe.base    as pipeBase
@@ -43,7 +45,9 @@ class DrawRandomsConfig(CoaddBaseTask.ConfigClass):
     N           = pexConfig.Field("Number of random points per patch (supersedes Nden)", int, -1)
     Nden        = pexConfig.Field("Random number density per sq arcmin", float, 30)
     clobber     = pexConfig.Field("To overwrite existing file [default: True]", bool, True)
-    fileOutName = pexConfig.Field("Name of output file", str, "ran.fits")
+    #fileOutName = pexConfig.Field("Name of output file", str, "ran.fits")
+    dirOutName  = pexConfig.Field("Name of output directory (will write output files as dirOutName/FILTER/TRACT/PATCH/ran-FILTER-TRACT-PATCH.fits)", str, ".")
+    fileOutName = pexConfig.Field("Name of output file (supersedes dirOutName)", str, "")
     test        = pexConfig.Field("To write a test table", bool, False)
 
     setPrimaryFlags = pexConfig.ConfigurableField(target=SetPrimaryFlagsTask, doc="Set flags for primary source in tract/patch")
@@ -77,7 +81,8 @@ class DrawRandomsTask(CoaddBaseTask):
         self.log.info("Processing %s" % (dataRef.dataId))
 
         # get coadd, coadd info and coadd psf object
-        coadd   = dataRef.get(self.config.coaddName + "Coadd")
+        #coadd = butler.get('calexp', dataRef.dataId)
+        coadd   = dataRef.get(self.config.coaddName + "Coadd_calexp")
         psf = coadd.getPsf()
 
         skyInfo = self.getSkyInfo(dataRef)
@@ -157,15 +162,21 @@ class DrawRandomsTask(CoaddBaseTask):
         self.setPrimaryFlags.run(catalog, skyInfo.skyMap, skyInfo.tractInfo, skyInfo.patchInfo, includeDeblend=False)
 
         # write catalog
-        catalog.writeFits(self.config.fileOutName)
+
+        if self.config.fileOutName == "":
+            fileOutName = "{0}/{1}/{2}/{3}/ran-{1}-{2}-{3}.fits".format(self.config.dirOutName,dataRef.dataId["filter"],dataRef.dataId["tract"],dataRef.dataId["patch"])
+            self.mkdir_p(os.path.dirname(fileOutName))
+        else:
+            fileOutName = self.config.fileOutName
+
+        #catalog.writeFits(self.config.fileOutName)
+        catalog.writeFits(fileOutName)
 
         # to do. Define output name in init (not in paf) and
         # allow parallel processing
         # write sources
         # if self.config.doWriteSources:
         #   dataRef.put(result.sources, self.dataPrefix + 'src')
-
-
 
         return
 
@@ -177,7 +188,14 @@ class DrawRandomsTask(CoaddBaseTask):
     def _getMetadataName(self):
         return None
 
-
+    def mkdir_p(self, path):
+        try:
+            os.makedirs(path)
+        except OSError as exc:  # Python >2.5
+            if exc.errno == errno.EEXIST and os.path.isdir(path):
+                pass
+            else:
+                raise
 
     """
     *******************************************************************
