@@ -43,7 +43,7 @@ __all__ = ["DrawRandomsTask"]
 class DrawRandomsConfig(CoaddBaseTask.ConfigClass):
 
     N           = pexConfig.Field("Number of random points per patch (supersedes Nden)", int, -1)
-    Nden        = pexConfig.Field("Random number density per sq arcmin", float, 30)
+    Nden        = pexConfig.Field("Random number density per sq arcmin", float, 100)
     clobber     = pexConfig.Field("To overwrite existing file [default: True]", bool, True)
     #fileOutName = pexConfig.Field("Name of output file", str, "ran.fits")
     dirOutName  = pexConfig.Field("Name of output directory (will write output files as dirOutName/FILTER/TRACT/PATCH/ran-FILTER-TRACT-PATCH.fits)", str, ".")
@@ -77,6 +77,9 @@ class DrawRandomsTask(CoaddBaseTask):
         for coordinate routines.
         """
 
+        # test
+        sources = dataRef.get(self.config.coaddName + "Coadd_meas")
+
         # verbose
         self.log.info("Processing %s" % (dataRef.dataId))
 
@@ -84,6 +87,7 @@ class DrawRandomsTask(CoaddBaseTask):
         #coadd = butler.get('calexp', dataRef.dataId)
         coadd = dataRef.get(self.config.coaddName + "Coadd_calexp")
         psf   = coadd.getPsf()
+        
 
         skyInfo = self.getSkyInfo(dataRef)
         #skyInfo = self.getSkyInfo(coaddName=self.config.coaddName, patchRef=dataRef)
@@ -99,6 +103,11 @@ class DrawRandomsTask(CoaddBaseTask):
         # copied from meas_algorithms/HSC-3.9.0/tests/countInputs.py
         measureSourcesConfig = measAlg.SourceMeasurementConfig()
         measureSourcesConfig.algorithms.names = ["flags.pixel", "centroid.naive", "countInputs"]
+
+        # see /Users/coupon/local/source/hscPipe/install/DarwinX86/meas_algorithms/HSC-4.0.0/tests/variance.py for variance measurement
+        # measureSourcesConfig.algorithms.names = ["flags.pixel", "centroid.naive", "countInputs", "variance"]
+        # measureSourcesConfig.algorithms["variance"].mask = ["BAD", "SAT"]
+
         measureSourcesConfig.slots.centroid = "centroid.naive"
         measureSourcesConfig.slots.psfFlux = None
         measureSourcesConfig.slots.apFlux = None
@@ -106,12 +115,31 @@ class DrawRandomsTask(CoaddBaseTask):
         measureSourcesConfig.slots.instFlux = None
         measureSourcesConfig.slots.calibFlux = None
         measureSourcesConfig.slots.shape =  None
+
         measureSourcesConfig.validate()
 
-        # add PSF_size column
+        # add PSF shape
         shape_sdss_psf = self.schema.addField("shape_sdss_psf", type="MomentsD", doc="PSF moments from SDSS algorithm", units="Pixels")
+
+        # add random number to adjust sky density
         adjust_density = self.schema.addField("adjust_density", type=float, doc="Random number between [0:1] to adjust sky density", units="unitless")
-        #PSF_size       = self.schema.addField("PSF_size", type=numpy.float32, doc="Size of the PSF from shape_sdss_psf (=sigma of gaussian)", units="Pixels")
+
+        # add PSF size
+        # PSF_size       = self.schema.addField("PSF_size", type=numpy.float32, doc="Size of the PSF from shape_sdss_psf (=sigma of gaussian)", units="Pixels")
+
+        # add sky mean and sky std_dev in 2" diameter apertures
+        if True:
+            sky_apertures = sources["flux.aperture"][sources["merge.footprint.sky"]]
+            sky_mean = numpy.mean(sky_apertures[:,2])
+            sky_std  = numpy.std(sky_apertures[:,2])
+        else:
+            sky_mean = 0.0
+            sky_std  = 0.0
+        sky_mean_key = self.schema.addField("sky_mean", type=float, doc="Mean of sky value in 2\" diamter apertures", units="flux")
+        sky_std_key  = self.schema.addField("sky_std", type=float, doc="Standard deviation of sky value in 2\" diamter apertures", units="flux")
+
+        # to get 5-sigma limiting magnitudes:
+        # print -2.5*numpy.log10(5.0*sky_std/coadd.getCalib().getFluxMag0()[0])
 
         ms      = measureSourcesConfig.makeMeasureSources(self.schema)
         catalog = afwTable.SourceCatalog(self.schema)
@@ -120,7 +148,7 @@ class DrawRandomsTask(CoaddBaseTask):
         if self.config.N == -1:
             # constant random number density
             # Compute the area in degree
-            pixel_area =  coadd.getWcs().pixelScale().asDegrees()**2
+            pixel_area = coadd.getWcs().pixelScale().asDegrees()**2
             area       = pixel_area * dim[0] * dim[1]
             N          = self.iround(area*self.config.Nden*60.0*60.0)
         else:
@@ -137,7 +165,7 @@ class DrawRandomsTask(CoaddBaseTask):
             x = numpy.random.random()*(dim[0]-1)
             y = numpy.random.random()*(dim[1]-1)
 
-            # coordinates
+            # get coordinates
             radec = wcs.pixelToSky(afwGeom.Point2D(x + xy0.getX(), y + xy0.getY()))
             xy    = wcs.skyToPixel(radec)
 
@@ -147,14 +175,20 @@ class DrawRandomsTask(CoaddBaseTask):
 
             # get PSF moments and evaluate size
             record.set(shape_sdss_psf, psf.computeShape(afwGeom.Point2D(xy)))
-            #record.set(PSF_size, psf.computeShape(afwGeom.Point2D(xy)).getDeterminantRadius())
+
+            # size = psf.computeShape(afwGeom.Point2D(xy)).getDeterminantRadius()
+            # record.set(PSF_size, size)
+
+            # looks like defining footprint isn't necessary
+            # foot = afwDetection.Footprint(afwGeom.Point2I(xy), width)
+            # record.setFootprint(foot)
+
+            # add sky properties
+            record.set(sky_mean_key, sky_mean)
+            record.set(sky_std_key, sky_std)
 
             # draw a number between 0 and 1 to adjust sky density
             record.set(adjust_density, numpy.random.rand(1.)[0])
-
-            # looks like defining footprint isn't necessary
-            # foot = afwDetection.Footprint(afwGeom.Point2I(xy), 1)
-            # record.setFootprint(foot)
 
             # required for setPrimaryFlags
             record.set(catalog.getCentroidKey(), afwGeom.Point2D(xy))
@@ -166,14 +200,11 @@ class DrawRandomsTask(CoaddBaseTask):
         self.setPrimaryFlags.run(catalog, skyInfo.skyMap, skyInfo.tractInfo, skyInfo.patchInfo, includeDeblend=False)
 
         # write catalog
-
         if self.config.fileOutName == "":
             fileOutName = "{0}/{1}/{2}/{3}/ran-{1}-{2}-{3}.fits".format(self.config.dirOutName,dataRef.dataId["filter"],dataRef.dataId["tract"],dataRef.dataId["patch"])
             self.mkdir_p(os.path.dirname(fileOutName))
         else:
             fileOutName = self.config.fileOutName
-
-        #catalog.writeFits(self.config.fileOutName)
         catalog.writeFits(fileOutName)
 
         # to do. Define output name in init (not in paf) and
@@ -200,6 +231,15 @@ class DrawRandomsTask(CoaddBaseTask):
                 pass
             else:
                 raise
+
+    def iround(self, x):
+        """
+        iround(number) -> integer
+        Round a number to the nearest integer.
+        From https://www.daniweb.com/software-development/python/threads/299459/round-to-nearest-integer-
+        """
+        return int(round(x) - .5) + (x > 0)
+
 
     """
     *******************************************************************
@@ -299,13 +339,6 @@ class DrawRandomsTask(CoaddBaseTask):
     def check_bit(self, bitmask, bit):
         return ((bitmask&(1<<bit))!=0)
 
-    def iround(self, x):
-        """
-        iround(number) -> integer
-        Round a number to the nearest integer.
-        From https://www.daniweb.com/software-development/python/threads/299459/round-to-nearest-integer-
-        """
-        return int(round(x) - .5) + (x > 0)
 
     def drawOnePointOLD(self, mask_array, dim, wcs, xy0, skyInfo):
 
