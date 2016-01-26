@@ -89,8 +89,6 @@ class DrawRandomsTask(CoaddBaseTask):
         psf   = coadd.getPsf()
         var   = coadd.getMaskedImage().getVariance().getArray()
 
-
-
         skyInfo = self.getSkyInfo(dataRef)
         #skyInfo = self.getSkyInfo(coaddName=self.config.coaddName, patchRef=dataRef)
 
