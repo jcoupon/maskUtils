@@ -87,7 +87,9 @@ class DrawRandomsTask(CoaddBaseTask):
         #coadd = butler.get('calexp', dataRef.dataId)
         coadd = dataRef.get(self.config.coaddName + "Coadd_calexp")
         psf   = coadd.getPsf()
-        
+        var   = coadd.getMaskedImage().getVariance().getArray()
+
+
 
         skyInfo = self.getSkyInfo(dataRef)
         #skyInfo = self.getSkyInfo(coaddName=self.config.coaddName, patchRef=dataRef)
@@ -138,6 +140,8 @@ class DrawRandomsTask(CoaddBaseTask):
         sky_mean_key = self.schema.addField("sky_mean", type=float, doc="Mean of sky value in 2\" diamter apertures", units="flux")
         sky_std_key  = self.schema.addField("sky_std", type=float, doc="Standard deviation of sky value in 2\" diamter apertures", units="flux")
 
+        pix_variance = self.schema.addField("pix_variance", type=float, doc="Pixel variance at random point position", units="flux^2")
+
         # to get 5-sigma limiting magnitudes:
         # print -2.5*numpy.log10(5.0*sky_std/coadd.getCalib().getFluxMag0()[0])
 
@@ -187,15 +191,17 @@ class DrawRandomsTask(CoaddBaseTask):
             record.set(sky_mean_key, sky_mean)
             record.set(sky_std_key, sky_std)
 
+            # add local variance
+            record.set(pix_variance, float(var[self.iround(y), self.iround(x)]))
+
             # draw a number between 0 and 1 to adjust sky density
-            record.set(adjust_density, numpy.random.rand(1.)[0])
+            record.set(adjust_density, numpy.random.random())
 
             # required for setPrimaryFlags
             record.set(catalog.getCentroidKey(), afwGeom.Point2D(xy))
 
             # do measurements (flagging and countINputs)
             ms.apply(record, coadd, afwGeom.Point2D(xy))
-
 
         self.setPrimaryFlags.run(catalog, skyInfo.skyMap, skyInfo.tractInfo, skyInfo.patchInfo, includeDeblend=False)
 
