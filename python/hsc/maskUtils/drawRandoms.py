@@ -176,7 +176,12 @@ class DrawRandomsTask(CoaddBaseTask):
             record.setCoord(radec)
 
             # get PSF moments and evaluate size
-            record.set(shape_sdss_psf, psf.computeShape(afwGeom.Point2D(xy)))
+            try:
+                shape_sdss_psf_val = psf.computeShape(afwGeom.Point2D(xy))
+            except :
+                pass
+            else:
+                record.set(shape_sdss_psf, shape_sdss_psf_val)
 
             # size = psf.computeShape(afwGeom.Point2D(xy)).getDeterminantRadius()
             # record.set(PSF_size, size)
