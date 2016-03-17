@@ -104,6 +104,9 @@ class DrawRandomsTask(CoaddBaseTask):
         measureSourcesConfig = measAlg.SourceMeasurementConfig()
         measureSourcesConfig.algorithms.names = ["flags.pixel", "centroid.naive", "countInputs"]
 
+        measureSourcesConfig.algorithms["flags.pixel"].center.append("BRIGHT_OBJECT")
+        measureSourcesConfig.algorithms["flags.pixel"].any.append("BRIGHT_OBJECT")
+
         # see /Users/coupon/local/source/hscPipe/install/DarwinX86/meas_algorithms/HSC-4.0.0/tests/variance.py for variance measurement
         # measureSourcesConfig.algorithms.names = ["flags.pixel", "centroid.naive", "countInputs", "variance"]
         # measureSourcesConfig.algorithms["variance"].mask = ["BAD", "SAT"]
