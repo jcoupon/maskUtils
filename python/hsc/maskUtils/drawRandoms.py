@@ -49,6 +49,7 @@ class DrawRandomsConfig(CoaddBaseTask.ConfigClass):
     dirOutName  = pexConfig.Field("Name of output directory (will write output files as dirOutName/FILTER/TRACT/PATCH/ran-FILTER-TRACT-PATCH.fits)", str, ".")
     fileOutName = pexConfig.Field("Name of output file (supersedes dirOutName)", str, "")
     test        = pexConfig.Field("To write a test table", bool, False)
+    seed        = pexConfig.Field("Seed for random generator (default: based on on patch id)", int, -1)
 
     setPrimaryFlags = pexConfig.ConfigurableField(target=SetPrimaryFlagsTask, doc="Set flags for primary source in tract/patch")
 
@@ -77,11 +78,19 @@ class DrawRandomsTask(CoaddBaseTask):
         for coordinate routines.
         """
 
-        # test
-        sources = dataRef.get(self.config.coaddName + "Coadd_meas")
-
         # verbose
         self.log.info("Processing %s" % (dataRef.dataId))
+
+        # create a seed that depends on patch id
+        # so it is consistent among filters
+        if self.config.seed == -1:
+            p = [int(d) for d in dataRef.dataId["patch"].split(",") ]
+            numpy.random.seed(seed=dataRef.dataId["tract"]*10000+p[0]*10+ p[1])
+        else:
+            numpy.random.seed(seed=self.config.seed)
+
+        # for sky objects
+        sources = dataRef.get(self.config.coaddName + "Coadd_meas")
 
         # get coadd, coadd info and coadd psf object
         #coadd = butler.get('calexp', dataRef.dataId)
