@@ -28,7 +28,7 @@ Creates a random catalogue for a given patch:
 
 `fileOutName`: the name (with full path) of the output fits file (supersedes `dirOutName`).
 
-`seed` : Seed for random generator (default: based on on patch id)
+`seed` : Seed for random generator (default: based on patch id)
 
 ### Output (specific to drawRandoms.py):
 

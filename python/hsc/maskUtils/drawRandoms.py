@@ -49,7 +49,7 @@ class DrawRandomsConfig(CoaddBaseTask.ConfigClass):
     dirOutName  = pexConfig.Field("Name of output directory (will write output files as dirOutName/FILTER/TRACT/PATCH/ran-FILTER-TRACT-PATCH.fits)", str, ".")
     fileOutName = pexConfig.Field("Name of output file (supersedes dirOutName)", str, "")
     test        = pexConfig.Field("To write a test table", bool, False)
-    seed        = pexConfig.Field("Seed for random generator (default: based on on patch id)", int, -1)
+    seed        = pexConfig.Field("Seed for random generator (default: based on patch id)", int, -1)
 
     setPrimaryFlags = pexConfig.ConfigurableField(target=SetPrimaryFlagsTask, doc="Set flags for primary source in tract/patch")
 
