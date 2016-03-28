@@ -70,6 +70,20 @@ class DrawRandomsTask(CoaddBaseTask):
 
         self.makeSubtask("setPrimaryFlags", schema=self.schema)
 
+    def makeIdFactory(self, dataRef):
+        """Return an IdFactory for setting the detection identifiers
+
+        The actual parameters used in the IdFactory are provided by
+        the butler (through the provided data reference.
+        """
+        datasetName="MergedCoaddId"
+
+        expBits = dataRef.get(self.config.coaddName + datasetName + "_bits")
+        expId = long(dataRef.get(self.config.coaddName + datasetName))
+
+        return afwTable.IdFactory.makeSource(expId, 64 - expBits)
+
+
 
     def run(self, dataRef, selectDataList=[]):
         """
@@ -155,8 +169,11 @@ class DrawRandomsTask(CoaddBaseTask):
         # to get 5-sigma limiting magnitudes:
         # print -2.5*numpy.log10(5.0*sky_std/coadd.getCalib().getFluxMag0()[0])
 
+
+
         ms      = measureSourcesConfig.makeMeasureSources(self.schema)
-        catalog = afwTable.SourceCatalog(self.schema)
+        table  = afwTable.SourceTable.make(self.schema, self.makeIdFactory(dataRef))
+        catalog = afwTable.SourceCatalog(table)
         measureSourcesConfig.slots.setupTable(catalog.getTable())
 
         if self.config.N == -1:
