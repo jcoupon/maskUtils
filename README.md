@@ -24,7 +24,7 @@ Creates a random catalogue for a given patch:
 
 `N`: controls the number of random points per patch (default is 100000). IMPORTANT: Supersedes Nden if set. Use with caution, patches (even within a single tract) may not have the same size, so that using N=fixed would result in non-constant random point density.
 
-`dirOutName`: Name of output directory (will write output files as dirOutName/FILTER/TRACT/PATCH/ran-FILTER-TRACT-PATCH.fits (default is current directory).
+`dirOutName`: Name of output directory (will write output files as dirOutName/FILTER/TRACT/PATCH/ran-FILTER-TRACT-PATCH.fits (default is ROOT/deepCoadd-results/).
 
 `fileOutName`: the name (with full path) of the output fits file (supersedes `dirOutName`).
 
