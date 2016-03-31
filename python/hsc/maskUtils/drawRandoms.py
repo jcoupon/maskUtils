@@ -242,12 +242,16 @@ class DrawRandomsTask(CoaddBaseTask):
             # TO DO: create new PAF
             # see /Users/coupon/local/source/hscPipe/install/DarwinX86/solvetansip/6.5.1p_hsc/python/hsc/meas/tansip/utils.py
             # and /Users/coupon/local/source/hscPipe/install/DarwinX86/pex_policy/HSC-4.0.0/tests/Policy_1.py
-            if self.config.dirOutName == "":
+
+            if self.config.dirOutName == "" :
                 dirOutName = dataRef.getButler().mapper.root+"/"+self.config.coaddName+"Coadd-results"
                 self.log.info("WARNING: the output file will be written in {0:s}.".format(dirOutName))
-            else:
+            else:
                 dirOutName = self.config.dirOutName
+
             fileOutName = "{0}/{1}/{2}/{3}/ran-{1}-{2}-{3}.fits".format(dirOutName,dataRef.dataId["filter"],dataRef.dataId["tract"],dataRef.dataId["patch"])
+
+
         else:
             fileOutName = self.config.fileOutName
 
