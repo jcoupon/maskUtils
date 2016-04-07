@@ -162,7 +162,7 @@ class CreateMultiRanCatTask(CoaddBaseTask):
         fields.append(mergedSchema.addField("EB_V",             type="F", doc="Milky Way dust E(B-V) [mag]"))
 
         fields.append(mergedSchema.addField("isDuplicated",     type="I", doc="1 if outside the inner tract or patch"))
-        fields.append(mergedSchema.addField("isOffImage",       type="I", doc="1 if in NO_DATA area or on the CCD edge"))
+        fields.append(mergedSchema.addField("isEdge",           type="I", doc="1 if offImage or in region masked EDGE or NO_DATA"))
         fields.append(mergedSchema.addField("hasBadPhotometry", type="I", doc="1 if interpolated, saturated, suspect, has CR at center or near bright object"))
         fields.append(mergedSchema.addField("isClean",          type="I", doc="1 if none of other flags is set"))
 
@@ -190,8 +190,8 @@ class CreateMultiRanCatTask(CoaddBaseTask):
                     break
 
             isDuplicated = not ref[i].get('detect.is-primary')
-            isOffImage   = (ref[i].get('flags.pixel.offimage')) | (ref[i].get('flags.pixel.edge'))
-            isClean = (not hasBadPhotometry) & (not isDuplicated) & (not isOffImage)
+            isEdge   = (ref[i].get('flags.pixel.offimage')) | (ref[i].get('flags.pixel.edge'))
+            isClean = (not hasBadPhotometry) & (not isDuplicated) & (not isEdge)
 
 
             # record common info from reference filter
@@ -202,7 +202,7 @@ class CreateMultiRanCatTask(CoaddBaseTask):
             record.set(mergedSchema['PSFDetRadius'].asKey(),     ref[i].get("shape.sdss.psf").getDeterminantRadius()*pixel_scale)
 
             record.set(mergedSchema['isDuplicated'].asKey(),     int(isDuplicated))
-            record.set(mergedSchema['isOffImage'].asKey(),       int(isOffImage))
+            record.set(mergedSchema['isEdge'].asKey(),       int(isEdge))
             record.set(mergedSchema['hasBadPhotometry'].asKey(), int(hasBadPhotometry))
             record.set(mergedSchema['isClean'].asKey(),          int(isClean))
 
