@@ -184,6 +184,7 @@ class CreateMultiRanCatTask(CoaddBaseTask):
                                 |  (catalogs[f][i].get('flags.pixel.saturated.center')) \
                                 |  (catalogs[f][i].get('flags.pixel.suspect.center'))  \
                                 |  (catalogs[f][i].get('flags.pixel.cr.center')) \
+                                |  (catalogs[f][i].get('flags.pixel.bad')) \
                                 |  (catalogs[f][i].get('flags.pixel.bright.object.center'))
                 if hasBadPhotometry:
                     break
