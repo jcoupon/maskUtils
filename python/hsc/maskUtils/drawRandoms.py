@@ -130,6 +130,8 @@ class DrawRandomsTask(CoaddBaseTask):
         measureSourcesConfig.algorithms["flags.pixel"].center.append("BRIGHT_OBJECT")
         measureSourcesConfig.algorithms["flags.pixel"].any.append("BRIGHT_OBJECT")
 
+        # print measureSourcesConfig.algorithms["flags.pixel"]
+
         # see /Users/coupon/local/source/hscPipe/install/DarwinX86/meas_algorithms/HSC-4.0.0/tests/variance.py for variance measurement
         # measureSourcesConfig.algorithms.names = ["flags.pixel", "centroid.naive", "countInputs", "variance"]
         # measureSourcesConfig.algorithms["variance"].mask = ["BAD", "SAT"]
@@ -209,13 +211,8 @@ class DrawRandomsTask(CoaddBaseTask):
                 pass
             else:
                 record.set(shape_sdss_psf, shape_sdss_psf_val)
-
-            # size = psf.computeShape(afwGeom.Point2D(xy)).getDeterminantRadius()
-            # record.set(PSF_size, size)
-
-            # looks like defining footprint isn't necessary
-            # foot = afwDetection.Footprint(afwGeom.Point2I(xy), width)
-            # record.setFootprint(foot)
+                foot = afwDetection.Footprint(afwGeom.Point2I(xy), shape_sdss_psf_val.getDeterminantRadius())
+                record.setFootprint(foot)
 
             # add sky properties
             record.set(sky_mean_key, sky_mean)
@@ -231,6 +228,7 @@ class DrawRandomsTask(CoaddBaseTask):
             record.set(catalog.getCentroidKey(), afwGeom.Point2D(xy))
 
             # do measurements (flagging and countINputs)
+            # ms.applyWithPeak(record, coadd) # need a footprint
             ms.apply(record, coadd, afwGeom.Point2D(xy))
 
         self.setPrimaryFlags.run(catalog, skyInfo.skyMap, skyInfo.tractInfo, skyInfo.patchInfo, includeDeblend=False)

@@ -45,6 +45,9 @@ class CreateMultiRanCatConfig(CoaddBaseTask.ConfigClass):
     dustSgpFileName = pexConfig.Field("Name of output file", str, "/Users/coupon/data/SchlegelDust/SFD_dust_4096_sgp.fits")
     dustNgpFileName = pexConfig.Field("Name of output file", str, "/Users/coupon/data/SchlegelDust/SFD_dust_4096_ngp.fits")
 
+    refFilterName = pexConfig.Field("Name of reference filter (default: HSC-I)", str, "HSC-I")
+
+
     def setDefaults(self):
         pexConfig.Config.setDefaults(self)
 
@@ -144,7 +147,7 @@ class CreateMultiRanCatTask(CoaddBaseTask):
         pixel_scale = wcs.pixelScale().asDegrees()*3600.0
 
 
-        ref = catalogs["HSC-I"]
+        ref = catalogs[self.config.refFilterName]
 
         # create new table table
         mergedSchema = afwTable.Schema()
