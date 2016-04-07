@@ -222,7 +222,7 @@ class CreateMultiRanCatTask(CoaddBaseTask):
             else:
                 dirOutName = self.config.dirOutName
 
-            fileOutName = "{0}/{1}/{2}/{3}/MultiRanCat-{1}-{2}-{3}.fits".format(dirOutName,"merged",dataRef.dataId["tract"],dataRef.dataId["patch"])
+            fileOutName = "{0}/{1}/{2}/{3}/multiRanCat-{1}-{2}-{3}.fits".format(dirOutName,"merged",dataRef.dataId["tract"],dataRef.dataId["patch"])
 
 
         else:
