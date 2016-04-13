@@ -166,7 +166,6 @@ class CreateMultiRanCatTask(CoaddBaseTask):
         fields.append(mergedSchema.addField("hasBadPhotometry", type="I", doc="1 if interpolated, saturated, suspect, has CR at center or near bright object"))
         fields.append(mergedSchema.addField("isClean",          type="I", doc="1 if none of other flags is set"))
 
-
         # create table object
         merged = afwTable.BaseCatalog(mergedSchema)
 
@@ -202,7 +201,7 @@ class CreateMultiRanCatTask(CoaddBaseTask):
             record.set(mergedSchema['PSFDetRadius'].asKey(),     ref[i].get("shape.sdss.psf").getDeterminantRadius()*pixel_scale)
 
             record.set(mergedSchema['isDuplicated'].asKey(),     int(isDuplicated))
-            record.set(mergedSchema['isEdge'].asKey(),       int(isEdge))
+            record.set(mergedSchema['isEdge'].asKey(),           int(isEdge))
             record.set(mergedSchema['hasBadPhotometry'].asKey(), int(hasBadPhotometry))
             record.set(mergedSchema['isClean'].asKey(),          int(isClean))
 
@@ -226,7 +225,7 @@ class CreateMultiRanCatTask(CoaddBaseTask):
             else:
                 dirOutName = self.config.dirOutName
 
-            fileOutName = "{0}/{1}/{2}/{3}/multiRanCat-{1}-{2}-{3}.fits".format(dirOutName,"merged",dataRef.dataId["tract"],dataRef.dataId["patch"])
+            fileOutName = "{0}/{1}/{2}/{3}/multiRanCat-{2}-{3}.fits".format(dirOutName,"merged",dataRef.dataId["tract"],dataRef.dataId["patch"])
 
 
         else:
