@@ -28,7 +28,7 @@ import os
 from argparse import ArgumentError
 
 
-import lsst.pex.config     as pexConfig
+import lsst.pex.config as pexConfig
 from lsst.pipe.tasks.coaddBase import CoaddBaseTask
 import lsst.afw.table as afwTable
 
@@ -37,16 +37,13 @@ __all__ = ["CreateMultiRanCatTask"]
 
 class CreateMultiRanCatConfig(CoaddBaseTask.ConfigClass):
 
-    filters   = pexConfig.Field("Name of filters to combine [default HSC-G^HSC-R^HSC-I^HSC-Z^HSC-Y]", str, "HSC-G^HSC-R^HSC-I^HSC-Z^HSC-Y")
-
+    filters = pexConfig.Field("Name of filters to combine [default HSC-G^HSC-R^HSC-I^HSC-Z^HSC-Y]", str, "HSC-G^HSC-R^HSC-I^HSC-Z^HSC-Y")
     fileOutName = pexConfig.Field("Name of output file", str, "")
-    dirOutName  = pexConfig.Field("Name of output directory (will write output files as dirOutName/FILTER/TRACT/PATCH/MultiRanCat-FILTER-TRACT-PATCH.fits)", str, "")
-
+    dirOutName = pexConfig.Field("Name of output directory (will write output files as dirOutName/FILTER/TRACT/PATCH/MultiRanCat-FILTER-TRACT-PATCH.fits)", str, "")
     dustSgpFileName = pexConfig.Field("Name of output file", str, "/Users/coupon/data/SchlegelDust/SFD_dust_4096_sgp.fits")
     dustNgpFileName = pexConfig.Field("Name of output file", str, "/Users/coupon/data/SchlegelDust/SFD_dust_4096_ngp.fits")
-
+    hasDepthInfo = pexConfig.Field("If reference filter catalog has depth info", bool, False)
     refFilterName = pexConfig.Field("Name of reference filter (default: HSC-I)", str, "HSC-I")
-
 
     def setDefaults(self):
         pexConfig.Config.setDefaults(self)
@@ -114,7 +111,7 @@ class CreateMultiRanCatTask(CoaddBaseTask):
         """Read input coadd
         """
         dataRef.dataId["filter"] = filterName
-        coadd      = dataRef.get("deepCoadd_calexp")
+        coadd = dataRef.get("deepCoadd_calexp")
         self.log.info("Read coadd for filter %s: %s" % (filterName, dataRef.dataId))
         return filterName, coadd
 
@@ -123,7 +120,7 @@ class CreateMultiRanCatTask(CoaddBaseTask):
 
         from astropy import units as u
         from astropy.coordinates import SkyCoord
-        import astropy.wcs       as wcs
+        import astropy.wcs as wcs
 
         coord = SkyCoord(ra=ra*u.degree, dec=dec*u.degree, frame='fk5')
 
@@ -134,18 +131,16 @@ class CreateMultiRanCatTask(CoaddBaseTask):
             x, y = wcs.utils.skycoord_to_pixel(coord, dustMap.sWcs,  origin=0)
             return float(dustMap.sMap[self.iround(y), self.iround(x)])
 
-
     def run(self, dataRef, selectDataList=[]):
 
         self.log.info("Processing %s" % (dataRef.dataId))
 
-        filters   = self.config.filters.split("^")
+        filters = self.config.filters.split("^")
         catalogs = dict(self.readCatalog(dataRef, f) for f in filters)
-        coadds   = dict(self.readCoadd(dataRef, f) for f in filters)
+        coadds = dict(self.readCoadd(dataRef, f) for f in filters)
 
-        wcs         = coadds[filters[0]].getWcs()
+        wcs = coadds[filters[0]].getWcs()
         pixel_scale = wcs.pixelScale().asDegrees()*3600.0
-
 
         ref = catalogs[self.config.refFilterName]
 
@@ -154,24 +149,25 @@ class CreateMultiRanCatTask(CoaddBaseTask):
 
         fields=[]
         # define table fields
-        fields.append(mergedSchema.addField("id",               type="L", doc="Unique id"))
-        fields.append(mergedSchema.addField("ra",               type="F", doc="ra [deg]"))
-        fields.append(mergedSchema.addField("dec",              type="F", doc="dec [deg]"))
-        fields.append(mergedSchema.addField("countInputs",      type="I", doc="Number of input single exposures for the reference filter"))
-        fields.append(mergedSchema.addField("PSFDetRadius",     type="F", doc="Determinant radius for the PSF at the object position = sigma if gaussian [arcsec]"))
-        fields.append(mergedSchema.addField("EB_V",             type="F", doc="Milky Way dust E(B-V) [mag]"))
-
-        fields.append(mergedSchema.addField("isDuplicated",     type="I", doc="1 if outside the inner tract or patch"))
-        fields.append(mergedSchema.addField("isEdge",           type="I", doc="1 if offImage or in region masked EDGE or NO_DATA"))
+        fields.append(mergedSchema.addField("id", type="L", doc="Unique id"))
+        fields.append(mergedSchema.addField("ra", type="F", doc="ra [deg]"))
+        fields.append(mergedSchema.addField("dec", type="F", doc="dec [deg]"))
+        fields.append(mergedSchema.addField("countInputs", type="I", doc="Number of input single exposures for the reference filter"))
+        fields.append(mergedSchema.addField("PSFDetRadius", type="F", doc="Determinant radius for the PSF at the object position = sigma if gaussian [arcsec]"))
+        fields.append(mergedSchema.addField("EB_V", type="F", doc="Milky Way dust E(B-V) [mag]"))
+        fields.append(mergedSchema.addField("isDuplicated", type="I", doc="1 if outside the inner tract or patch"))
+        fields.append(mergedSchema.addField("isEdge", type="I", doc="1 if offImage or in region masked EDGE or NO_DATA"))
         fields.append(mergedSchema.addField("hasBadPhotometry", type="I", doc="1 if interpolated, saturated, suspect, has CR at center or near bright object"))
-        fields.append(mergedSchema.addField("isClean",          type="I", doc="1 if none of other flags is set"))
+        fields.append(mergedSchema.addField("isClean", type="I", doc="1 if none of other flags is set"))
+        if self.hasDepthInfo:
+            fields.append(mergedSchema.addField("isFullDepthColor", type="I", doc="1 if point located in full depth and color area"))
 
         # create table object
         merged = afwTable.BaseCatalog(mergedSchema)
 
         N = len(ref)
         for i in range(N):
-        #for i in range(100,110):
+        # for i in range(100,110):
 
             # create new record
             record = merged.addNew()
@@ -189,27 +185,25 @@ class CreateMultiRanCatTask(CoaddBaseTask):
                     break
 
             isDuplicated = not ref[i].get('detect.is-primary')
-            isEdge   = (ref[i].get('flags.pixel.offimage')) | (ref[i].get('flags.pixel.edge'))
+            isEdge = (ref[i].get('flags.pixel.offimage')) | (ref[i].get('flags.pixel.edge'))
             isClean = (not hasBadPhotometry) & (not isDuplicated) & (not isEdge)
 
-
             # record common info from reference filter
-            record.set(mergedSchema['id'].asKey(),               ref[i].get('id'))
-            record.set(mergedSchema['ra'].asKey(),               coord.toFk5().getRa().asDegrees())
-            record.set(mergedSchema['dec'].asKey(),              coord.toFk5().getDec().asDegrees())
-            record.set(mergedSchema['countInputs'].asKey(),      ref[i].get('countInputs'))
-            record.set(mergedSchema['PSFDetRadius'].asKey(),     ref[i].get("shape.sdss.psf").getDeterminantRadius()*pixel_scale)
-
-            record.set(mergedSchema['isDuplicated'].asKey(),     int(isDuplicated))
-            record.set(mergedSchema['isEdge'].asKey(),           int(isEdge))
+            record.set(mergedSchema['id'].asKey(), ref[i].get('id'))
+            record.set(mergedSchema['ra'].asKey(), coord.toFk5().getRa().asDegrees())
+            record.set(mergedSchema['dec'].asKey(), coord.toFk5().getDec().asDegrees())
+            record.set(mergedSchema['countInputs'].asKey(), ref[i].get('countInputs'))
+            record.set(mergedSchema['PSFDetRadius'].asKey(), ref[i].get("shape.sdss.psf").getDeterminantRadius()*pixel_scale)
+            record.set(mergedSchema['isDuplicated'].asKey(), int(isDuplicated))
+            record.set(mergedSchema['isEdge'].asKey(), int(isEdge))
             record.set(mergedSchema['hasBadPhotometry'].asKey(), int(hasBadPhotometry))
-            record.set(mergedSchema['isClean'].asKey(),          int(isClean))
+            record.set(mergedSchema['isClean'].asKey(), int(isClean))
+            if self.hasDepthInfo:
+                record.set(mergedSchema['isFullDepthColor'].asKey(), int(ref[i].get('isFullDepthColor')))
 
             # dust correction
             EB_V = self.getDustCorrection(self.dustMap, record.get(mergedSchema['ra'].asKey()), record.get(mergedSchema['dec'].asKey()))
             record.set(mergedSchema['EB_V'].asKey(), EB_V)
-
-
 
         # write catalog
         if self.config.fileOutName == "":
@@ -235,9 +229,6 @@ class CreateMultiRanCatTask(CoaddBaseTask):
 
         self.mkdir_p(os.path.dirname(fileOutName))
         merged.writeFits(fileOutName)
-
-
-
 
         # write catalog
         #self.log.info("Writing {0:s}".format(self.config.fileOutName))

@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 #
-# LSST Data Management System
-# Copyright 2008, 2009, 2010, 2011, 2012 LSST Corporation.
+# Jean Coupon (jean.coupon@unige.ch)
 #
 # This product includes software developed by the
 # LSST Project (http://www.lsst.org/).
@@ -25,11 +24,13 @@ import numpy
 import errno
 import os
 
-import lsst.pex.config   as pexConfig
-import lsst.pipe.base    as pipeBase
-import lsst.afw.image    as afwImage
-from   lsst.afw.geom     import Box2D
-import lsst.afw.table    as afwTable
+import healpy
+
+import lsst.pex.config as pexConfig
+import lsst.pipe.base as pipeBase
+import lsst.afw.image as afwImage
+from   lsst.afw.geom import Box2D
+import lsst.afw.table as afwTable
 import lsst.meas.algorithms as measAlg
 
 import lsst.afw.geom as afwGeom
@@ -38,22 +39,21 @@ import lsst.afw.detection as afwDetection
 from lsst.pipe.tasks.coaddBase import CoaddBaseTask
 from lsst.pipe.tasks.setPrimaryFlags import SetPrimaryFlagsTask
 
-# from lsst.obs.hsc import HscMapper
-
 __all__ = ["DrawRandomsTask"]
 
 class DrawRandomsConfig(CoaddBaseTask.ConfigClass):
 
-    N           = pexConfig.Field("Number of random points per patch (supersedes Nden)", int, -1)
-    Nden        = pexConfig.Field("Random number density per sq arcmin", float, 100)
-    clobber     = pexConfig.Field("To overwrite existing file [default: True]", bool, True)
-    #fileOutName = pexConfig.Field("Name of output file", str, "ran.fits")
-    dirOutName  = pexConfig.Field("Name of output directory (will write output files as dirOutName/FILTER/TRACT/PATCH/ran-FILTER-TRACT-PATCH.fits)", str, "")
+    N  = pexConfig.Field("Number of random points per patch (supersedes Nden)", int, -1)
+    Nden = pexConfig.Field("Random number density per sq arcmin", float, 100)
+    clobber = pexConfig.Field("To overwrite existing file [default: True]", bool, True)
+    dirOutName = pexConfig.Field("Name of output directory (will write output files as dirOutName/FILTER/TRACT/PATCH/ran-FILTER-TRACT-PATCH.fits)", str, "")
     fileOutName = pexConfig.Field("Name of output file (supersedes dirOutName)", str, "")
-    test        = pexConfig.Field("To write a test table", bool, False)
-    seed        = pexConfig.Field("Seed for random generator (default: based on patch id)", int, -1)
-
+    test = pexConfig.Field("To write a test table", bool, False)
+    seed = pexConfig.Field("Seed for random generator (default: based on patch id)", int, -1)
     setPrimaryFlags = pexConfig.ConfigurableField(target=SetPrimaryFlagsTask, doc="Set flags for primary source in tract/patch")
+    depthMapFileName = pexConfig.Field("Name of healpix file that records full depth", str, "")
+
+    #fileOutName = pexConfig.Field("Name of output file", str, "ran.fits")
 
     def setDefaults(self):
         pexConfig.Config.setDefaults(self)
@@ -61,6 +61,14 @@ class DrawRandomsConfig(CoaddBaseTask.ConfigClass):
 class DrawRandomsTask(CoaddBaseTask):
     _DefaultName = "drawRandoms"
     ConfigClass  = DrawRandomsConfig
+
+    class depthMap(object):
+        """depthMap map info in
+        healpix format
+        """
+
+        def __init__(self):
+            pass
 
     def __init__(self, schema=None, *args, **kwargs):
         #ProcessCoaddTask.__init__(self, **kwargs)
@@ -72,8 +80,15 @@ class DrawRandomsTask(CoaddBaseTask):
 
         self.makeSubtask("setPrimaryFlags", schema=self.schema)
 
+        self.depthMap.map = None
+        if self.config.depthMapFileName != "":
+            self.depthMap.map = numpy.load(self.config.depthMapFileName)
+            self.depthMap.nside = 1024
+            self.depthMap.nest = True
+
+
     def makeIdFactory(self, dataRef):
-        """Return an IdFactory for setting the detection identifiers
+        """ Return an IdFactory for setting the detection identifiers
 
         The actual parameters used in the IdFactory are provided by
         the butler (through the provided data reference.
@@ -86,8 +101,7 @@ class DrawRandomsTask(CoaddBaseTask):
         return afwTable.IdFactory.makeSource(expId, 64 - expBits)
 
     def run(self, dataRef, selectDataList=[]):
-        """
-        Draw randoms for a given patch
+        """ Draw randoms for a given patch
         See http://hsca.ipmu.jp/hscsphinx_test/scripts/print_coord.html
         for coordinate routines.
         """
@@ -109,18 +123,18 @@ class DrawRandomsTask(CoaddBaseTask):
         # get coadd, coadd info and coadd psf object
         #coadd = butler.get('calexp', dataRef.dataId)
         coadd = dataRef.get(self.config.coaddName + "Coadd_calexp")
-        psf   = coadd.getPsf()
-        var   = coadd.getMaskedImage().getVariance().getArray()
+        psf = coadd.getPsf()
+        var = coadd.getMaskedImage().getVariance().getArray()
 
         skyInfo = self.getSkyInfo(dataRef)
         #skyInfo = self.getSkyInfo(coaddName=self.config.coaddName, patchRef=dataRef)
 
         # wcs and reference point (wrt tract)
-        wcs  = coadd.getWcs()
-        xy0  = coadd.getXY0()
+        wcs = coadd.getWcs()
+        xy0 = coadd.getXY0()
 
         # dimension in pixels
-        dim  = coadd.getDimensions()
+        dim = coadd.getDimensions()
 
         # create table and catalog
         # copied from meas_algorithms/HSC-3.9.0/tests/countInputs.py
@@ -131,7 +145,6 @@ class DrawRandomsTask(CoaddBaseTask):
         measureSourcesConfig.algorithms["flags.pixel"].any.append("BRIGHT_OBJECT")
 
         # print measureSourcesConfig.algorithms["flags.pixel"]
-
 
         # see /Users/coupon/local/source/hscPipe/install/DarwinX86/meas_algorithms/HSC-4.0.0/tests/variance.py for variance measurement
         # measureSourcesConfig.algorithms.names = ["flags.pixel", "centroid.naive", "countInputs", "variance"]
@@ -154,7 +167,7 @@ class DrawRandomsTask(CoaddBaseTask):
         adjust_density = self.schema.addField("adjust_density", type=float, doc="Random number between [0:1] to adjust sky density", units="unitless")
 
         # add PSF size
-        # PSF_size       = self.schema.addField("PSF_size", type=numpy.float32, doc="Size of the PSF from shape_sdss_psf (=sigma of gaussian)", units="Pixels")
+        # PSF_size = self.schema.addField("PSF_size", type=numpy.float32, doc="Size of the PSF from shape_sdss_psf (=sigma of gaussian)", units="Pixels")
 
         # add sky mean and sky std_dev in 2" diameter apertures
         if True:
@@ -172,8 +185,12 @@ class DrawRandomsTask(CoaddBaseTask):
         # to get 5-sigma limiting magnitudes:
         # print -2.5*numpy.log10(5.0*sky_std/coadd.getCalib().getFluxMag0()[0])
 
-        ms      = measureSourcesConfig.makeMeasureSources(self.schema)
-        table  = afwTable.SourceTable.make(self.schema, self.makeIdFactory(dataRef))
+        # add healpix map value
+        if self.depthMap.map is not None:
+            depth_key = self.schema.addField("isFullDepthColor", type="Flag", doc="True if full depth and full colors at point position", units="")
+
+        ms = measureSourcesConfig.makeMeasureSources(self.schema)
+        table = afwTable.SourceTable.make(self.schema, self.makeIdFactory(dataRef))
         catalog = afwTable.SourceCatalog(table)
         measureSourcesConfig.slots.setupTable(catalog.getTable())
 
@@ -181,8 +198,8 @@ class DrawRandomsTask(CoaddBaseTask):
             # constant random number density
             # Compute the area in degree
             pixel_area = coadd.getWcs().pixelScale().asDegrees()**2
-            area       = pixel_area * dim[0] * dim[1]
-            N          = self.iround(area*self.config.Nden*60.0*60.0)
+            area = pixel_area * dim[0] * dim[1]
+            N = self.iround(area*self.config.Nden*60.0*60.0)
         else:
             # fixed number if random points
             N = self.config.N
@@ -199,18 +216,17 @@ class DrawRandomsTask(CoaddBaseTask):
 
             # get coordinates
             radec = wcs.pixelToSky(afwGeom.Point2D(x + xy0.getX(), y + xy0.getY()))
-            xy    = wcs.skyToPixel(radec)
+            xy = wcs.skyToPixel(radec)
 
             # add record in table
             record = catalog.addNew()
             record.setCoord(radec)
 
             # get PSF moments and evaluate size
-
             size_psf = 1.0
             try:
                 shape_sdss_psf_val = psf.computeShape(afwGeom.Point2D(xy))
-            except :
+            except:
                 pass
             else:
                 record.set(shape_sdss_psf, shape_sdss_psf_val)
@@ -219,6 +235,9 @@ class DrawRandomsTask(CoaddBaseTask):
             foot = afwDetection.Footprint(afwGeom.Point2I(xy), size_psf)
             record.setFootprint(foot)
 
+            # draw a number between 0 and 1 to adjust sky density
+            record.set(adjust_density, numpy.random.random())
+
             # add sky properties
             record.set(sky_mean_key, sky_mean)
             record.set(sky_std_key, sky_std)
@@ -226,11 +245,15 @@ class DrawRandomsTask(CoaddBaseTask):
             # add local variance
             record.set(pix_variance, float(var[self.iround(y), self.iround(x)]))
 
-            # draw a number between 0 and 1 to adjust sky density
-            record.set(adjust_density, numpy.random.random())
-
             # required for setPrimaryFlags
             record.set(catalog.getCentroidKey(), afwGeom.Point2D(xy))
+
+            #print dir(record)
+
+            # add healpix map value
+            if self.depthMap.map is not None:
+                mapIndex = healpy.pixelfunc.ang2pix(self.depthMap.nside, numpy.pi/2.0 - radec[1].asRadians(), radec[0].asRadians(), nest=self.depthMap.nest)
+                record.setFlag(depth_key, self.depthMap.map[mapIndex])
 
             # do measurements (flagging and countINputs)
             # try:
@@ -257,7 +280,6 @@ class DrawRandomsTask(CoaddBaseTask):
                 dirOutName = self.config.dirOutName
 
             fileOutName = "{0}/{1}/{2}/{3}/ran-{1}-{2}-{3}.fits".format(dirOutName,dataRef.dataId["filter"],dataRef.dataId["tract"],dataRef.dataId["patch"])
-
 
         else:
             fileOutName = self.config.fileOutName
@@ -300,7 +322,6 @@ class DrawRandomsTask(CoaddBaseTask):
 
 #    def check_bit(self, bitmask, bit):
 #        return ((bitmask&(1<<bit))!=0)
-
 
 #    def int_robust(self, s):
 #        try:
