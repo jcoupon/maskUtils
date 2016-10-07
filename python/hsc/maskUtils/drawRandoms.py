@@ -82,10 +82,15 @@ class DrawRandomsTask(CoaddBaseTask):
 
         self.depthMap.map = None
         if self.config.depthMapFileName != "":
-            self.depthMap.map = numpy.load(self.config.depthMapFileName)
-            self.depthMap.nside = 1024
+
             self.depthMap.nest = True
 
+            # self.depthMap.map = numpy.load(self.config.depthMapFileName)
+            # self.depthMap.nside = 1024
+
+            self.depthMap.map, h = healpy.fitsfunc.read_map(self.config.depthMapFileName, nest=self.depthMap.nest, h=True)
+            self.depthMap.header = dict(h)
+            self.depthMap.nside = self.depthMap.header['NSIDE']
 
     def makeIdFactory(self, dataRef):
         """ Return an IdFactory for setting the detection identifiers
