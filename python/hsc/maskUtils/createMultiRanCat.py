@@ -159,7 +159,7 @@ class CreateMultiRanCatTask(CoaddBaseTask):
         fields.append(mergedSchema.addField("isEdge", type="I", doc="1 if offImage or in region masked EDGE or NO_DATA"))
         fields.append(mergedSchema.addField("hasBadPhotometry", type="I", doc="1 if interpolated, saturated, suspect, has CR at center or near bright object"))
         fields.append(mergedSchema.addField("isClean", type="I", doc="1 if none of other flags is set"))
-        if self.hasDepthInfo:
+        if self.config.hasDepthInfo:
             fields.append(mergedSchema.addField("isFullDepthColor", type="I", doc="1 if point located in full depth and color area"))
 
         # create table object
@@ -198,7 +198,7 @@ class CreateMultiRanCatTask(CoaddBaseTask):
             record.set(mergedSchema['isEdge'].asKey(), int(isEdge))
             record.set(mergedSchema['hasBadPhotometry'].asKey(), int(hasBadPhotometry))
             record.set(mergedSchema['isClean'].asKey(), int(isClean))
-            if self.hasDepthInfo:
+            if self.config.hasDepthInfo:
                 record.set(mergedSchema['isFullDepthColor'].asKey(), int(ref[i].get('isFullDepthColor')))
 
             # dust correction
