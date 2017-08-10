@@ -31,7 +31,7 @@ import lsst.pipe.base as pipeBase
 import lsst.afw.image as afwImage
 from   lsst.afw.geom import Box2D
 import lsst.afw.table as afwTable
-import lsst.meas.algorithms as measAlg
+import lsst.meas.base as measBase
 
 import lsst.afw.geom as afwGeom
 import lsst.afw.detection as afwDetection
@@ -42,8 +42,10 @@ from lsst.pipe.tasks.setPrimaryFlags import SetPrimaryFlagsTask
 __all__ = ["DrawRandomsTask"]
 
 class DrawRandomsConfig(CoaddBaseTask.ConfigClass):
+    """configuration for drawRandoms
+    """
 
-    N  = pexConfig.Field("Number of random points per patch (supersedes Nden)", int, -1)
+    N = pexConfig.Field("Number of random points per patch (supersedes Nden)", int, -1)
     Nden = pexConfig.Field("Random number density per sq arcmin", float, 100)
     clobber = pexConfig.Field("To overwrite existing file [default: True]", bool, True)
     dirOutName = pexConfig.Field("Name of output directory (will write output files as dirOutName/FILTER/TRACT/PATCH/ran-FILTER-TRACT-PATCH.fits)", str, "")
@@ -52,8 +54,6 @@ class DrawRandomsConfig(CoaddBaseTask.ConfigClass):
     seed = pexConfig.Field("Seed for random generator (default: based on patch id)", int, -1)
     setPrimaryFlags = pexConfig.ConfigurableField(target=SetPrimaryFlagsTask, doc="Set flags for primary source in tract/patch")
     depthMapFileName = pexConfig.Field("Name of healpix file that records full depth", str, "")
-
-    #fileOutName = pexConfig.Field("Name of output file", str, "ran.fits")
 
     def setDefaults(self):
         pexConfig.Config.setDefaults(self)
@@ -71,7 +71,6 @@ class DrawRandomsTask(CoaddBaseTask):
             pass
 
     def __init__(self, schema=None, *args, **kwargs):
-        #ProcessCoaddTask.__init__(self, **kwargs)
         CoaddBaseTask.__init__(self,  *args, **kwargs)
 
         if schema is None:
@@ -81,13 +80,12 @@ class DrawRandomsTask(CoaddBaseTask):
         self.makeSubtask("setPrimaryFlags", schema=self.schema)
 
         self.depthMap.map = None
+
         if self.config.depthMapFileName != "":
+            """healpix map
+            """
 
             self.depthMap.nest = True
-
-            # self.depthMap.map = numpy.load(self.config.depthMapFileName)
-            # self.depthMap.nside = 1024
-
             self.depthMap.map, h = healpy.fitsfunc.read_map(self.config.depthMapFileName, nest=self.depthMap.nest, h=True)
             self.depthMap.header = dict(h)
             self.depthMap.nside = self.depthMap.header['NSIDE']
@@ -98,17 +96,15 @@ class DrawRandomsTask(CoaddBaseTask):
         The actual parameters used in the IdFactory are provided by
         the butler (through the provided data reference.
         """
-        datasetName="MergedCoaddId"
 
+        datasetName="MergedCoaddId"
         expBits = dataRef.get(self.config.coaddName + datasetName + "_bits")
         expId = long(dataRef.get(self.config.coaddName + datasetName))
 
         return afwTable.IdFactory.makeSource(expId, 64 - expBits)
 
     def run(self, dataRef, selectDataList=[]):
-        """ Draw randoms for a given patch
-        See http://hsca.ipmu.jp/hscsphinx_test/scripts/print_coord.html
-        for coordinate routines.
+        """Draw randoms for a given patch
         """
 
         # verbose
@@ -122,40 +118,41 @@ class DrawRandomsTask(CoaddBaseTask):
         else:
             numpy.random.seed(seed=self.config.seed)
 
-        # for sky objects
+        # compute sky mean and sky std_dev for this patch
+        # in 2" diameter apertures (~12 pixels x 0.17"/pixel)
+        # import source list for getting sky objects
         sources = dataRef.get(self.config.coaddName + "Coadd_meas")
+        if True:
+            sky_apertures = sources['base_CircularApertureFlux_12_0_flux'][sources['merge_peak_sky']]
+            select = numpy.isfinite(sky_apertures)
+            sky_mean = numpy.mean(sky_apertures[select])
+            sky_std  = numpy.std(sky_apertures[select])
+            # NOTE: to get 5-sigma limiting magnitudes:
+            # print -2.5*numpy.log10(5.0*sky_std/coadd.getCalib().getFluxMag0()[0])
+        else:
+            sky_mean = 0.0
+            sky_std  = 0.0
 
         # get coadd, coadd info and coadd psf object
-        #coadd = butler.get('calexp', dataRef.dataId)
         coadd = dataRef.get(self.config.coaddName + "Coadd_calexp")
         psf = coadd.getPsf()
         var = coadd.getMaskedImage().getVariance().getArray()
-
         skyInfo = self.getSkyInfo(dataRef)
-        #skyInfo = self.getSkyInfo(coaddName=self.config.coaddName, patchRef=dataRef)
 
         # wcs and reference point (wrt tract)
+        # See http://hsca.ipmu.jp/hscsphinx_test/scripts/print_coord.html
+        # for coordinate routines.
         wcs = coadd.getWcs()
         xy0 = coadd.getXY0()
 
         # dimension in pixels
         dim = coadd.getDimensions()
 
-        # create table and catalog
-        # copied from meas_algorithms/HSC-3.9.0/tests/countInputs.py
-        measureSourcesConfig = measAlg.SourceMeasurementConfig()
-        measureSourcesConfig.algorithms.names = ["flags.pixel", "centroid.naive", "countInputs"]
-
-        measureSourcesConfig.algorithms["flags.pixel"].center.append("BRIGHT_OBJECT")
-        measureSourcesConfig.algorithms["flags.pixel"].any.append("BRIGHT_OBJECT")
-
-        # print measureSourcesConfig.algorithms["flags.pixel"]
-
-        # see /Users/coupon/local/source/hscPipe/install/DarwinX86/meas_algorithms/HSC-4.0.0/tests/variance.py for variance measurement
-        # measureSourcesConfig.algorithms.names = ["flags.pixel", "centroid.naive", "countInputs", "variance"]
-        # measureSourcesConfig.algorithms["variance"].mask = ["BAD", "SAT"]
-
-        measureSourcesConfig.slots.centroid = "centroid.naive"
+        # define measurement algorithms
+        # mostly copied from /data1a/ana/hscPipe5/Linux64/meas_base/5.3-hsc/tests/testInputCount.py
+        measureSourcesConfig = measBase.SingleFrameMeasurementConfig()
+        measureSourcesConfig.plugins.names = ['base_PixelFlags', 'base_PeakCentroid', 'base_InputCount', 'base_SdssShape']
+        measureSourcesConfig.slots.centroid = "base_PeakCentroid"
         measureSourcesConfig.slots.psfFlux = None
         measureSourcesConfig.slots.apFlux = None
         measureSourcesConfig.slots.modelFlux = None
@@ -163,45 +160,42 @@ class DrawRandomsTask(CoaddBaseTask):
         measureSourcesConfig.slots.calibFlux = None
         measureSourcesConfig.slots.shape =  None
 
+        # it seems it is still necessary to manually add the
+        # bright-star mask flag by hand
+        measureSourcesConfig.plugins['base_PixelFlags'].masksFpCenter.append("BRIGHT_OBJECT")
+        measureSourcesConfig.plugins['base_PixelFlags'].masksFpAnywhere.append("BRIGHT_OBJECT")
+
         measureSourcesConfig.validate()
 
         # add PSF shape
-        shape_sdss_psf = self.schema.addField("shape_sdss_psf", type="MomentsD", doc="PSF moments from SDSS algorithm", units="Pixels")
+        # sdssShape_psf = self.schema.addField("shape_sdss_psf", type="MomentsD", doc="PSF xx from SDSS algorithm", units="pixel")
+        # shape_sdss_psf = self.schema.addField("shape_sdss_psf", type="MomentsD", doc="PSF yy from SDSS algorithm", units="pixel")
+        # shape_sdss_psf = self.schema.addField("shape_sdss_psf", type="MomentsD", doc="PSF xy from SDSS algorithm", units="pixel")
 
-        # add random number to adjust sky density
-        adjust_density = self.schema.addField("adjust_density", type=float, doc="Random number between [0:1] to adjust sky density", units="unitless")
+        # additional columns
 
-        # add PSF size
-        # PSF_size = self.schema.addField("PSF_size", type=numpy.float32, doc="Size of the PSF from shape_sdss_psf (=sigma of gaussian)", units="Pixels")
+        # random number to adjust sky density
+        adjust_density = self.schema.addField("adjust_density", type=float, doc="Random number between [0:1] to adjust sky density", units='')
 
-        # add sky mean and sky std_dev in 2" diameter apertures
-        if True:
-            sky_apertures = sources["flux.aperture"][sources["merge.footprint.sky"]]
-            sky_mean = numpy.mean(sky_apertures[:,2])
-            sky_std  = numpy.std(sky_apertures[:,2])
-        else:
-            sky_mean = 0.0
-            sky_std  = 0.0
-        sky_mean_key = self.schema.addField("sky_mean", type=float, doc="Mean of sky value in 2\" diamter apertures", units="flux")
-        sky_std_key  = self.schema.addField("sky_std", type=float, doc="Standard deviation of sky value in 2\" diamter apertures", units="flux")
+        # sky mean and variance for the entire patch
+        sky_mean_key = self.schema.addField("sky_mean", type=float, doc="Mean of sky value in 2\" diamter apertures", units='count')
+        sky_std_key  = self.schema.addField("sky_std", type=float, doc="Standard deviation of sky value in 2\" diamter apertures", units='count')
 
-        pix_variance = self.schema.addField("pix_variance", type=float, doc="Pixel variance at random point position", units="flux^2")
+        # pixel variance at random point position
+        pix_variance = self.schema.addField("pix_variance", type=float, doc="Pixel variance at random point position", units="flx^2")
 
-        # to get 5-sigma limiting magnitudes:
-        # print -2.5*numpy.log10(5.0*sky_std/coadd.getCalib().getFluxMag0()[0])
-
-        # add healpix map value
+        # add healpix map value (if healpix map is given)
         if self.depthMap.map is not None:
-            depth_key = self.schema.addField("isFullDepthColor", type="Flag", doc="True if full depth and full colors at point position", units="")
+            depth_key = self.schema.addField("isFullDepthColor", type="Flag", doc="True if full depth and full colors at point position", units='')
 
-        ms = measureSourcesConfig.makeMeasureSources(self.schema)
-        table = afwTable.SourceTable.make(self.schema, self.makeIdFactory(dataRef))
-        catalog = afwTable.SourceCatalog(table)
-        measureSourcesConfig.slots.setupTable(catalog.getTable())
+        # task and output catalog
+        task = measBase.SingleFrameMeasurementTask(self.schema, config=measureSourcesConfig)
+        catalog = afwTable.SourceCatalog(self.schema)
 
         if self.config.N == -1:
-            # constant random number density
-            # Compute the area in degree
+            # to output a constant random 
+            # number density, first compute 
+            # the area in degree
             pixel_area = coadd.getWcs().pixelScale().asDegrees()**2
             area = pixel_area * dim[0] * dim[1]
             N = self.iround(area*self.config.Nden*60.0*60.0)
@@ -214,8 +208,9 @@ class DrawRandomsTask(CoaddBaseTask):
 
         # loop over N random points
         for i in range(N):
+        # for i in range(100):
 
-            # draw a random point
+            # draw one random point
             x = numpy.random.random()*(dim[0]-1)
             y = numpy.random.random()*(dim[1]-1)
 
@@ -223,21 +218,26 @@ class DrawRandomsTask(CoaddBaseTask):
             radec = wcs.pixelToSky(afwGeom.Point2D(x + xy0.getX(), y + xy0.getY()))
             xy = wcs.skyToPixel(radec)
 
-            # add record in table
+            # new record in table
             record = catalog.addNew()
             record.setCoord(radec)
 
             # get PSF moments and evaluate size
-            size_psf = 1.0
-            try:
-                shape_sdss_psf_val = psf.computeShape(afwGeom.Point2D(xy))
-            except:
-                pass
-            else:
-                record.set(shape_sdss_psf, shape_sdss_psf_val)
-                size_psf = shape_sdss_psf_val.getDeterminantRadius()
+            #size_psf = 1.0
+            #try:
+            #    shape_sdss_psf_val = psf.computeShape(afwGeom.Point2D(xy))
+            #except:
+            #    pass
+            #else:
+             #   record.set(shape_sdss_psf, shape_sdss_psf_val)
+             #   size_psf = shape_sdss_psf_val.getDeterminantRadius()
 
-            foot = afwDetection.Footprint(afwGeom.Point2I(xy), size_psf)
+            # footprint is one pixel
+            foot = afwDetection.Footprint(afwGeom.Point2I(xy), 1.0)
+            peak = foot.getPeaks().addNew()
+            peak.setFx(xy[0])
+            peak.setFy(xy[1])
+            peak.setPeakValue(0.0)
             record.setFootprint(foot)
 
             # draw a number between 0 and 1 to adjust sky density
@@ -247,39 +247,28 @@ class DrawRandomsTask(CoaddBaseTask):
             record.set(sky_mean_key, sky_mean)
             record.set(sky_std_key, sky_std)
 
-            # add local variance
+            # add local (pixel) variance
             record.set(pix_variance, float(var[self.iround(y), self.iround(x)]))
 
             # required for setPrimaryFlags
             record.set(catalog.getCentroidKey(), afwGeom.Point2D(xy))
-
-            #print dir(record)
 
             # add healpix map value
             if self.depthMap.map is not None:
                 mapIndex = healpy.pixelfunc.ang2pix(self.depthMap.nside, numpy.pi/2.0 - radec[1].asRadians(), radec[0].asRadians(), nest=self.depthMap.nest)
                 record.setFlag(depth_key, self.depthMap.map[mapIndex])
 
-            # do measurements (flagging and countINputs)
-            # try:
-            #    ms.applyWithPeak(record, coadd) # need a footprint
-            # except:
-            #    pass
-
-            ms.apply(record, coadd, afwGeom.Point2D(xy))
+            # run measurements
+            task.run(catalog, coadd)
 
         self.setPrimaryFlags.run(catalog, skyInfo.skyMap, skyInfo.tractInfo, skyInfo.patchInfo, includeDeblend=False)
 
         # write catalog
         if self.config.fileOutName == "":
-
-            # get output dir
-            # TO DO: create new PAF
-            # see /Users/coupon/local/source/hscPipe/install/DarwinX86/solvetansip/6.5.1p_hsc/python/hsc/meas/tansip/utils.py
-            # and /Users/coupon/local/source/hscPipe/install/DarwinX86/pex_policy/HSC-4.0.0/tests/Policy_1.py
-
             if self.config.dirOutName == "" :
-                dirOutName = dataRef.getButler().mapper.root+"/"+self.config.coaddName+"Coadd-results"
+                # this does not work with the new pipeline version
+                # dirOutName = dataRef.getButler().mapper.root+"/"+self.config.coaddName+"Coadd-results"       
+                dirOutName='./test/'+self.config.coaddName+'Coadd-results'
                 self.log.info("WARNING: the output file will be written in {0:s}.".format(dirOutName))
             else:
                 dirOutName = self.config.dirOutName
