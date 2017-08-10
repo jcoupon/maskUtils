@@ -107,6 +107,14 @@ class DrawRandomsTask(CoaddBaseTask):
         """Draw randoms for a given patch
         """
 
+        # first test if the forced-src file exists
+        # do not process if the patch doesn't exist
+        try:
+            dataRef.get(self.config.coaddName + "Coadd_forced_src")
+        except:
+            self.log.info("No forced_src file found for %s. Skipping..." % (dataRef.dataId))
+            return
+
         # verbose
         self.log.info("Processing %s" % (dataRef.dataId))
 
@@ -206,6 +214,12 @@ class DrawRandomsTask(CoaddBaseTask):
         # verbose
         self.log.info("Drawing %d random points" % (N))
 
+        #for i in range(1752):
+         #   numpy.random.random()
+          #  numpy.random.random()
+           # numpy.random.random()
+            
+
         # loop over N random points
         for i in range(N):
         # for i in range(100):
@@ -232,8 +246,8 @@ class DrawRandomsTask(CoaddBaseTask):
              #   record.set(shape_sdss_psf, shape_sdss_psf_val)
              #   size_psf = shape_sdss_psf_val.getDeterminantRadius()
 
-            # footprint is one pixel
-            foot = afwDetection.Footprint(afwGeom.Point2I(xy), 1.0)
+            # object has no footprint
+            foot = afwDetection.Footprint(afwGeom.Point2I(xy), 0.0)
             peak = foot.getPeaks().addNew()
             peak.setFx(xy[0])
             peak.setFy(xy[1])
