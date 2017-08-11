@@ -222,7 +222,7 @@ class DrawRandomsTask(CoaddBaseTask):
 
         # loop over N random points
         for i in range(N):
-        # for i in range(100):
+       #  for i in range(100):
 
             # draw one random point
             x = numpy.random.random()*(dim[0]-1)
@@ -272,8 +272,8 @@ class DrawRandomsTask(CoaddBaseTask):
                 mapIndex = healpy.pixelfunc.ang2pix(self.depthMap.nside, numpy.pi/2.0 - radec[1].asRadians(), radec[0].asRadians(), nest=self.depthMap.nest)
                 record.setFlag(depth_key, self.depthMap.map[mapIndex])
 
-            # run measurements
-            task.run(catalog, coadd)
+        # run measurements
+        task.run(catalog, coadd)
 
         self.setPrimaryFlags.run(catalog, skyInfo.skyMap, skyInfo.tractInfo, skyInfo.patchInfo, includeDeblend=False)
 
