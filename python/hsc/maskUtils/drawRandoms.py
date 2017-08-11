@@ -115,6 +115,11 @@ class DrawRandomsTask(CoaddBaseTask):
             self.log.info("No forced_src file found for %s. Skipping..." % (dataRef.dataId))
             return
 
+        print dataRef.get(self.config.coaddName + "Coadd_forced_src_filename")
+
+
+        return
+
         # verbose
         self.log.info("Processing %s" % (dataRef.dataId))
 
