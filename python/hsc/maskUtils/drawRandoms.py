@@ -115,11 +115,6 @@ class DrawRandomsTask(CoaddBaseTask):
             self.log.info("No forced_src file found for %s. Skipping..." % (dataRef.dataId))
             return
 
-        print dataRef.get(self.config.coaddName + "Coadd_forced_src_filename")
-
-
-        return
-
         # verbose
         self.log.info("Processing %s" % (dataRef.dataId))
 
@@ -165,6 +160,7 @@ class DrawRandomsTask(CoaddBaseTask):
         # mostly copied from /data1a/ana/hscPipe5/Linux64/meas_base/5.3-hsc/tests/testInputCount.py
         measureSourcesConfig = measBase.SingleFrameMeasurementConfig()
         measureSourcesConfig.plugins.names = ['base_PixelFlags', 'base_PeakCentroid', 'base_InputCount', 'base_SdssShape']
+        # measureSourcesConfig.plugins.names = ['base_PixelFlags', 'base_PeakCentroid', 'base_InputCount', 'base_shapeHSM_HsmPsfMoments']
         measureSourcesConfig.slots.centroid = "base_PeakCentroid"
         measureSourcesConfig.slots.psfFlux = None
         measureSourcesConfig.slots.apFlux = None
@@ -219,15 +215,9 @@ class DrawRandomsTask(CoaddBaseTask):
         # verbose
         self.log.info("Drawing %d random points" % (N))
 
-        #for i in range(1752):
-         #   numpy.random.random()
-          #  numpy.random.random()
-           # numpy.random.random()
-            
-
         # loop over N random points
         for i in range(N):
-       #  for i in range(100):
+        # for i in range(100):
 
             # draw one random point
             x = numpy.random.random()*(dim[0]-1)
@@ -285,15 +275,10 @@ class DrawRandomsTask(CoaddBaseTask):
         # write catalog
         if self.config.fileOutName == "":
             if self.config.dirOutName == "" :
-                # this does not work with the new pipeline version
-                # dirOutName = dataRef.getButler().mapper.root+"/"+self.config.coaddName+"Coadd-results"       
-                dirOutName='./test/'+self.config.coaddName+'Coadd-results'
-                self.log.info("WARNING: the output file will be written in {0:s}.".format(dirOutName))
+                fileOutName = dataRef.get(self.config.coaddName + "Coadd_forced_src_filename")[0].replace('forced_src', 'ran')
+                self.log.info("WARNING: the output file will be written in {0:s}.".format(fileOutName))
             else:
-                dirOutName = self.config.dirOutName
-
-            fileOutName = "{0}/{1}/{2}/{3}/ran-{1}-{2}-{3}.fits".format(dirOutName,dataRef.dataId["filter"],dataRef.dataId["tract"],dataRef.dataId["patch"])
-
+                fileOutName = "{0}/{1}/{2}/{3}/ran-{1}-{2}-{3}.fits".format(self.config.dirOutName,dataRef.dataId["filter"],dataRef.dataId["tract"],dataRef.dataId["patch"])
         else:
             fileOutName = self.config.fileOutName
 
