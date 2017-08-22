@@ -94,10 +94,12 @@ class DrawRandomsTask(CoaddBaseTask):
         """ Return an IdFactory for setting the detection identifiers
 
         The actual parameters used in the IdFactory are provided by
-        the butler (through the provided data reference.
+        the butler (through the provided data reference).
         """
 
-        datasetName="MergedCoaddId"
+        # see /data1a/ana/hscPipe5/Linux64/afw/5.2-hsc/tests/testSourceTable.py
+
+        datasetName="CoaddId"
         expBits = dataRef.get(self.config.coaddName + datasetName + "_bits")
         expId = long(dataRef.get(self.config.coaddName + datasetName))
 
@@ -199,7 +201,8 @@ class DrawRandomsTask(CoaddBaseTask):
 
         # task and output catalog
         task = measBase.SingleFrameMeasurementTask(self.schema, config=measureSourcesConfig)
-        catalog = afwTable.SourceCatalog(self.schema)
+        table = afwTable.SourceTable.make(self.schema, self.makeIdFactory(dataRef))
+        catalog = afwTable.SourceCatalog(table)
 
         if self.config.N == -1:
             # to output a constant random 
