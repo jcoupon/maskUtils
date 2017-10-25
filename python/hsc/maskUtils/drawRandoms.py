@@ -98,8 +98,9 @@ class DrawRandomsTask(CoaddBaseTask):
         """
 
         # see /data1a/ana/hscPipe5/Linux64/afw/5.2-hsc/tests/testSourceTable.py
+        # or /Users/coupon/local/source/hscPipe5/DarwinX86/afw/5.3-hsc/tests/testSourceTable.py
 
-        datasetName="CoaddId"
+        datasetName="MergedCoaddId"
         expBits = dataRef.get(self.config.coaddName + datasetName + "_bits")
         expId = long(dataRef.get(self.config.coaddName + datasetName))
 
@@ -205,8 +206,8 @@ class DrawRandomsTask(CoaddBaseTask):
         catalog = afwTable.SourceCatalog(table)
 
         if self.config.N == -1:
-            # to output a constant random 
-            # number density, first compute 
+            # to output a constant random
+            # number density, first compute
             # the area in degree
             pixel_area = coadd.getWcs().pixelScale().asDegrees()**2
             area = pixel_area * dim[0] * dim[1]
