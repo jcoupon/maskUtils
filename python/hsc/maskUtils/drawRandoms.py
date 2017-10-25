@@ -121,6 +121,7 @@ class DrawRandomsTask(CoaddBaseTask):
         # verbose
         self.log.info("Processing %s" % (dataRef.dataId))
 
+
         # create a seed that depends on patch id
         # so it is consistent among filters
         if self.config.seed == -1:
