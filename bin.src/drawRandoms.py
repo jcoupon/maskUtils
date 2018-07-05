@@ -1,4 +1,4 @@
-#!/Users/coupon/local/source/hscPipe_v6/python/miniconda3-4.3.21/bin/python  # noqa
+#!/usr/bin/env python
 #
 # LSST Data Management System
 # Copyright 2008, 2009, 2010 LSST Corporation.
@@ -20,5 +20,5 @@
 # the GNU General Public License along with this program.  If not,
 # see <http://www.lsstcorp.org/LegalNotices/>.
 #
-from hsc.maskUtils import CreateMultiRanCatTask
-CreateMultiRanCatTask.parseAndRun()
+from hsc.maskUtils import DrawRandomsTask
+DrawRandomsTask.parseAndRun()

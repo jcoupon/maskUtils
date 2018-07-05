@@ -35,6 +35,8 @@ import lsst.meas.base as measBase
 
 import lsst.afw.geom as afwGeom
 import lsst.afw.detection as afwDetection
+from lsst.afw.geom import Span, SpanSet, Stencil
+from lsst.afw.detection import Footprint
 
 from lsst.pipe.tasks.coaddBase import CoaddBaseTask
 from lsst.pipe.tasks.setPrimaryFlags import SetPrimaryFlagsTask
@@ -99,10 +101,11 @@ class DrawRandomsTask(CoaddBaseTask):
 
         # see /data1a/ana/hscPipe5/Linux64/afw/5.2-hsc/tests/testSourceTable.py
         # or /Users/coupon/local/source/hscPipe5/DarwinX86/afw/5.3-hsc/tests/testSourceTable.py
+        # changed long to int, conversion for python3, in expId
 
         datasetName="MergedCoaddId"
         expBits = dataRef.get(self.config.coaddName + datasetName + "_bits")
-        expId = long(dataRef.get(self.config.coaddName + datasetName))
+        expId = int(dataRef.get(self.config.coaddName + datasetName))
 
         return afwTable.IdFactory.makeSource(expId, 64 - expBits)
 
@@ -209,7 +212,7 @@ class DrawRandomsTask(CoaddBaseTask):
             # to output a constant random
             # number density, first compute
             # the area in degree
-            pixel_area = coadd.getWcs().pixelScale().asDegrees()**2
+            pixel_area = coadd.getWcs().getPixelScale().asDegrees()**2
             area = pixel_area * dim[0] * dim[1]
             N = self.iround(area*self.config.Nden*60.0*60.0)
         else:
@@ -246,11 +249,10 @@ class DrawRandomsTask(CoaddBaseTask):
              #   size_psf = shape_sdss_psf_val.getDeterminantRadius()
 
             # object has no footprint
-            foot = afwDetection.Footprint(afwGeom.Point2I(xy), 0.0)
-            peak = foot.getPeaks().addNew()
-            peak.setFx(xy[0])
-            peak.setFy(xy[1])
-            peak.setPeakValue(0.0)
+            radius = 0
+            spanset1 = SpanSet.fromShape(radius, stencil=Stencil.CIRCLE, offset=afwGeom.Point2I(xy))
+            foot = Footprint(spanset1)
+            foot.addPeak(xy[0], xy[1], 0.0)
             record.setFootprint(foot)
 
             # draw a number between 0 and 1 to adjust sky density

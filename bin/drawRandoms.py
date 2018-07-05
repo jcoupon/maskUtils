@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/Users/coupon/local/source/hscPipe_v6/python/miniconda3-4.3.21/bin/python  # noqa
 #
 # LSST Data Management System
 # Copyright 2008, 2009, 2010 LSST Corporation.
