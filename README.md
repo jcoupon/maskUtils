@@ -8,7 +8,10 @@ git clone https://github.com/jcoupon/maskUtils.git
 ```
 and run
 ```
-setup -v -j -r path/to/maskUtils
+cd path/to/maskUtils
+setup -v -j -r .
+scons -Q -j 6 opt=3
+cd -
 ```
 
 ## drawRandoms.py

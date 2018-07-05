@@ -164,7 +164,6 @@ class DrawRandomsTask(CoaddBaseTask):
         # mostly copied from /data1a/ana/hscPipe5/Linux64/meas_base/5.3-hsc/tests/testInputCount.py
         measureSourcesConfig = measBase.SingleFrameMeasurementConfig()
         measureSourcesConfig.plugins.names = ['base_PixelFlags', 'base_PeakCentroid', 'base_InputCount', 'base_SdssShape']
-        # measureSourcesConfig.plugins.names = ['base_PixelFlags', 'base_PeakCentroid', 'base_InputCount', 'base_shapeHSM_HsmPsfMoments']
         measureSourcesConfig.slots.centroid = "base_PeakCentroid"
         measureSourcesConfig.slots.psfFlux = None
         measureSourcesConfig.slots.apFlux = None
