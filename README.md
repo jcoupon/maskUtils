@@ -18,9 +18,7 @@ cd -
 
 Creates a random catalogue for a given patch:
 ```shell
-
-
- drawRandoms.py DATADIR --rerun RERUNDIR --id tract=TRACT patch=PATCH filter=FILTER --config Nden=100  dirOutName=DIR  
+drawRandoms.py DATADIR --rerun RERUNDIR --id tract=TRACT patch=PATCH filter=FILTER --config Nden=100  dirOutName=DIR  
 ```
 
 ### Options:
