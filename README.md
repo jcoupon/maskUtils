@@ -7,7 +7,7 @@ To install it, download the latest version to path/to/maskUtils
 git clone https://github.com/jcoupon/maskUtils.git
 ```
 and run
-```
+```shell
 cd path/to/maskUtils
 setup -v -j -r .
 scons -Q -j 6 opt=3
@@ -17,7 +17,7 @@ cd -
 ## drawRandoms.py
 
 Creates a random catalogue for a given patch:
-```
+```shell
  drawRandoms.py DATADIR --rerun RERUNDIR --id tract=TRACT patch=PATCH filter=FILTER --config Nden=100  dirOutName=DIR  
 ```
 
